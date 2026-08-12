@@ -1,5 +1,5 @@
 {
-  "launcherVersion": "0.8.3",
+  "launcherVersion": "0.9.1",
   "channel": "stable",
   "games": {
     "ets2": { "supported": ["1.60"], "steamAppId": 227300 },
