@@ -1,6 +1,9 @@
 using Microsoft.VisualBasic;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace VtcTruckHub.Launcher;
@@ -24,6 +27,14 @@ public partial class MainWindow : Window
         PlayButton.Click += async (_, _) => await Play();
         UpdateButton.Click += async (_, _) => await InstallUpdate();
         connectionTimer.Tick += async (_, _) => await UpdateConnection();
+        HomeNav.Click += (_, _) => StatusText.Text = "Launcher ist aktuell und startbereit";
+        ServersNav.Click += (_, _) => ShowServers();
+        ModsNav.Click += (_, _) => OpenPluginFolder();
+        NewsNav.Click += (_, _) => OpenWeb("https://ets-server.vtc-truck-hub.de");
+        SettingsNav.Click += (_, _) => ShowSettings();
+        AccountNav.Click += (_, _) => ShowAccount();
+        GameSelect.SelectionChanged += async (_, _) => { if (IsLoaded) await Refresh(); };
+        Loaded += (_, _) => WireQuickActions();
     }
 
     async void OnLoaded(object sender, RoutedEventArgs e)
@@ -77,6 +88,50 @@ public partial class MainWindow : Window
 
     string State(string id) => state?.Games.FirstOrDefault(g => g.Id == id)?.Installed == true ? "Installiert und startbereit" : "Nicht installiert";
     string SelectedGame() => ((ComboBoxItem)GameSelect.SelectedItem).Tag.ToString()!;
+
+    void WireQuickActions()
+    {
+        foreach (var button in FindVisualChildren<Button>(this))
+        {
+            var label = button.Content?.ToString() ?? "";
+            if (label.Contains("SERVERLISTE") || label.Contains("Server durchsuchen")) button.Click += (_, _) => ShowServers();
+            else if (label.Contains("Mods verwalten")) button.Click += (_, _) => OpenPluginFolder();
+            else if (label.Contains("Serverregeln")) button.Click += (_, _) => OpenWeb("https://ets-server.vtc-truck-hub.de");
+            else if (label.Contains("Support")) button.Click += (_, _) => OpenWeb("https://github.com/PeckolinoAkJan/ets2-server-louncher/issues");
+        }
+    }
+
+    void ShowServers()
+    {
+        if (state is null) return;
+        var servers = state.Servers.Where(server => server.Game == SelectedGame()).ToArray();
+        if (servers.Length == 0) { MessageBox.Show("Für dieses Spiel ist noch kein VTC-Server eingerichtet.", "Serverliste"); return; }
+        var lines = servers.Select(server => $"{server.Name}\n{(server.Running ? "Online" : "Offline")} · {server.Players}/{server.Capacity} Fahrer · {server.Host}:{server.Port}");
+        MessageBox.Show(string.Join("\n\n", lines), $"{SelectedGame().ToUpperInvariant()}-Server", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    void OpenPluginFolder()
+    {
+        if (state is null) return;
+        var game = state.Games.FirstOrDefault(item => item.Id == SelectedGame());
+        if (game?.Executable is null) { MessageBox.Show("Die gewählte Spielinstallation wurde nicht gefunden."); return; }
+        var folder = Path.Combine(Path.GetDirectoryName(game.Executable)!, "plugins");
+        Directory.CreateDirectory(folder);
+        Process.Start(new ProcessStartInfo("explorer.exe", folder) { UseShellExecute = true });
+    }
+
+    void ShowSettings() => MessageBox.Show($"Spiel: {SelectedGame().ToUpperInvariant()}\nKartenprofil: {state?.Config.PreferredMapProfile}\nDispatcher-Hotkey: {state?.Config.DispatcherHotkey}\nTelemetrie-Autostart: {(state?.Config.TelemetryAutoStart == true ? "Aktiv" : "Aus")}\nPanel: {state?.Config.PanelUrl}", "VTC-Einstellungen", MessageBoxButton.OK, MessageBoxImage.Information);
+    void ShowAccount() => MessageBox.Show(state?.Account is null ? "Nicht angemeldet" : $"Fahrer: {state.Account.DisplayName}\nSteam-ID: {state.Account.SteamId}\nVTC-Rolle: {state.Account.Role}", "VTC-Konto", MessageBoxButton.OK, MessageBoxImage.Information);
+    static void OpenWeb(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var descendant in FindVisualChildren<T>(child)) yield return descendant;
+        }
+    }
 
     async Task Play()
     {
