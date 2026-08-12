@@ -31,13 +31,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force launcher-src/publish/tools,launcher-src/publish/licenses/SII-Decrypt | Out-Null
-          git clone --depth 1 --branch bin https://github.com/ncs-sniper/SII_Decrypt.git launcher-src/sii-decrypt
-          $decryptor = Get-ChildItem launcher-src/sii-decrypt -Recurse -Filter SII_Decrypt.exe | Where-Object Length -gt 100000 | Select-Object -First 1
-          if (-not $decryptor) { throw 'SII_Decrypt executable was not found' }
-          Copy-Item $decryptor.FullName launcher-src/publish/tools/SII_Decrypt.exe
-          $license = Get-ChildItem launcher-src/sii-decrypt -Recurse -Filter license.txt | Select-Object -First 1
-          if ($license) { Copy-Item $license.FullName launcher-src/publish/licenses/SII-Decrypt/LICENSE.txt }
-          if ((Get-Item launcher-src/publish/tools/SII_Decrypt.exe).Length -lt 100000) { throw 'SII_Decrypt download is invalid' }
+          $source = 'https://raw.githubusercontent.com/TheLazyTomcat/SII_Decrypt/683e1d8addc96947967148a29a07e0859736a926'
+          Invoke-WebRequest "$source/Program_Console/Lazarus/Release/win_x64/SII_Decrypt.exe" -OutFile launcher-src/publish/tools/SII_Decrypt.exe
+          Invoke-WebRequest "$source/license.txt" -OutFile launcher-src/publish/licenses/SII-Decrypt/LICENSE.txt
+          $actual = (Get-FileHash launcher-src/publish/tools/SII_Decrypt.exe -Algorithm SHA256).Hash
+          if ($actual -ne '3AD9389B328AC47BD2D069068A94ABDB816ADAE26A777C33B627554882FEA45F') { throw "SII_Decrypt checksum mismatch: $actual" }
       - name: Build installer
         shell: pwsh
         run: |
