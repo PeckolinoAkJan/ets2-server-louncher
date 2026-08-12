@@ -41,7 +41,7 @@ SCSAPI_RESULT scs_telemetry_init(const scs_u32_t version,const scs_telemetry_ini
   if(std::strcmp(p->common.game_id,SCS_GAME_ID_ATS)==0)game_id="ats";else if(std::strcmp(p->common.game_id,SCS_GAME_ID_EUT2)==0)game_id="ets2";else return SCS_RESULT_unsupported;
   ok&=p->register_for_channel(SCS_TELEMETRY_TRUCK_CHANNEL_world_placement,SCS_U32_NIL,SCS_VALUE_TYPE_dplacement,SCS_TELEMETRY_CHANNEL_FLAG_none,on_dplacement,nullptr)==SCS_RESULT_ok;
   ok&=p->register_for_channel(SCS_TELEMETRY_TRUCK_CHANNEL_speed,SCS_U32_NIL,SCS_VALUE_TYPE_float,SCS_TELEMETRY_CHANNEL_FLAG_none,on_float,&state.speed)==SCS_RESULT_ok;
-  p->register_for_channel(SCS_TELEMETRY_TRUCK_CHANNEL_lights_beacon,SCS_U32_NIL,SCS_VALUE_TYPE_bool,SCS_TELEMETRY_CHANNEL_FLAG_none,on_bool,&state.beacon);
+  p->register_for_channel(SCS_TELEMETRY_TRUCK_CHANNEL_light_beacon,SCS_U32_NIL,SCS_VALUE_TYPE_bool,SCS_TELEMETRY_CHANNEL_FLAG_none,on_bool,&state.beacon);
   if(!ok)return SCS_RESULT_generic_error;running=true;worker=std::thread(loop);return SCS_RESULT_ok;
 }
 SCSAPI_VOID scs_telemetry_shutdown(void){running=false;if(worker.joinable())worker.join();}
