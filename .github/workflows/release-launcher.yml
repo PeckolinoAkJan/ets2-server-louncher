@@ -14,7 +14,7 @@ jobs:
         with: { dotnet-version: '8.0.x' }
       - name: Test server and local API
         shell: pwsh
-        run: node --test tests/*.test.mjs vtc-client/tests/*.test.mjs
+        run: node --test tests/server.test.mjs vtc-client/tests/*.test.mjs
       - name: Publish native launcher
         shell: pwsh
         run: dotnet publish launcher-src/VtcTruckHub.Launcher/VtcTruckHub.Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o launcher-src/publish

@@ -8,7 +8,7 @@ Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite un
 
 ## Release
 
-Ein Tag wie `launcher-v0.8.1` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
+Ein Tag wie `launcher-v0.8.2` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
 
 ## Updates
 
