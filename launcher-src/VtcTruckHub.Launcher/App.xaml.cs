@@ -8,10 +8,12 @@ namespace VtcTruckHub.Launcher;
 public partial class App : Application
 {
     Mutex? instanceMutex;
+    bool ownsInstanceMutex;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         instanceMutex = new Mutex(true, "Local\\VTC-Truck-Hub-Launcher", out var firstInstance);
+        ownsInstanceMutex = firstInstance;
         if (!firstInstance)
         {
             ActivateExistingWindow();
@@ -23,9 +25,13 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        instanceMutex?.ReleaseMutex();
+        if (ownsInstanceMutex)
+        {
+            instanceMutex?.ReleaseMutex();
+        }
         instanceMutex?.Dispose();
         instanceMutex = null;
+        ownsInstanceMutex = false;
         base.OnExit(e);
     }
 
