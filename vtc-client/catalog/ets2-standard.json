@@ -1,0 +1,30 @@
+{
+  "game": "ets2", "profile": "standard", "label": "ETS2 Standardkarte",
+  "cities": [
+    {"id":"berlin","name":"Berlin","companies":["tradeaux","transinet"]},
+    {"id":"hamburg","name":"Hamburg","companies":["euroacres","tradeaux"]},
+    {"id":"rotterdam","name":"Rotterdam","companies":["posped","transinet"]},
+    {"id":"paris","name":"Paris","companies":["eurogoodies","tradeaux"]}
+  ],
+  "companies": [
+    {"id":"tradeaux","name":"Tradeaux","cargoTags":["general","food"]},
+    {"id":"transinet","name":"Transinet","cargoTags":["general","machinery"]},
+    {"id":"euroacres","name":"Euro Acres","cargoTags":["food","agriculture"]},
+    {"id":"posped","name":"Posped","cargoTags":["general","containers"]},
+    {"id":"eurogoodies","name":"EuroGoodies","cargoTags":["food"]}
+  ],
+  "cargo": [
+    {"id":"apples","name":"Äpfel","tag":"food","trailers":["curtainsider","reefer"],"weightKg":18000},
+    {"id":"beverages","name":"Getränke","tag":"general","trailers":["curtainsider"],"weightKg":22000},
+    {"id":"tractors","name":"Traktoren","tag":"agriculture","trailers":["lowbed"],"weightKg":16000},
+    {"id":"machine_parts","name":"Maschinenteile","tag":"machinery","trailers":["curtainsider","flatbed"],"weightKg":20000},
+    {"id":"containers","name":"Container","tag":"containers","trailers":["container"],"weightKg":24000}
+  ],
+  "trailers": [
+    {"id":"curtainsider","name":"Gardinenauflieger","owned":true,"countries":["*"]},
+    {"id":"reefer","name":"Kühlauflieger","owned":true,"countries":["*"]},
+    {"id":"lowbed","name":"Tieflader","owned":true,"countries":["*"]},
+    {"id":"flatbed","name":"Flachbett","owned":true,"countries":["*"]},
+    {"id":"container","name":"Containerchassis","owned":true,"countries":["*"]}
+  ]
+}

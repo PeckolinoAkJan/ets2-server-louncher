@@ -1,0 +1,6 @@
+export class TelemetryService {
+  constructor({panelUrl,token,game,driverName,steamId,pollMs=2000,clientAuth=false}){Object.assign(this,{panelUrl,token,game,driverName,steamId,pollMs,clientAuth});this.timer=null;this.lastError=null;}
+  async tick(){const local=await fetch('http://127.0.0.1:25555/api/ets2/telemetry?noCache='+Date.now()).then(r=>{if(!r.ok)throw new Error(`Lokale Telemetrie ${r.status}`);return r.json();});if(!local.game?.connected)return;const p={name:this.driverName,steamId:this.steamId,city:local.job?.sourceCity||'Unterwegs',company:local.job?.sourceCompany||'',x:local.truck?.placement?.x,y:local.truck?.placement?.y,z:local.truck?.placement?.z,heading:local.truck?.placement?.heading,speed:Math.abs(local.truck?.speed||0)};const endpoint=this.clientAuth?`/api/client/telemetry/${this.game}`:`/api/telemetry/${this.game}`;await fetch(`${this.panelUrl.replace(/\/$/,'')}${endpoint}`,{method:'POST',headers:{authorization:`Bearer ${this.token}`,'content-type':'application/json'},body:JSON.stringify(p)}).then(r=>{if(!r.ok)throw new Error(`Panel-Telemetrie ${r.status}`);});}
+  start(){if(this.timer)return;const run=()=>this.tick().catch(e=>this.lastError=e.message);run();this.timer=setInterval(run,this.pollMs);}
+  stop(){if(this.timer)clearInterval(this.timer);this.timer=null;}
+}

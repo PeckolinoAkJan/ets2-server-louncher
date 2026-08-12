@@ -1,0 +1,30 @@
+services:
+  ets2-control:
+    build: .
+    container_name: ets2-control
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATA_DIR: /data
+      ETS2_HOME: "/data/Euro Truck Simulator 2"
+      ETS2_SERVER_DIR: /data/ets2-server
+      COOKIE_SECURE: "true"
+      TZ: Europe/Berlin
+    volumes:
+      - ets2-data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "27015:27015/udp"
+      - "27016:27016/udp"
+      - "27017:27017/udp"
+      - "27018:27018/udp"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/bootstrap').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ets2-data:
+    name: ets2-control-data

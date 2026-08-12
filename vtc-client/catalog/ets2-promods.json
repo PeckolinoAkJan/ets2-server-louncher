@@ -1,0 +1,17 @@
+{
+  "game":"ets2", "profile":"promods", "label":"ETS2 ProMods",
+  "extends":"ets2-standard.json",
+  "cities":[
+    {"id":"kirkenes","name":"Kirkenes","companies":["nordic_stonemarket"]},
+    {"id":"torshavn","name":"Tórshavn","companies":["polar_fish"]}
+  ],
+  "companies":[
+    {"id":"nordic_stonemarket","name":"Nordic Stonemarket","cargoTags":["construction"]},
+    {"id":"polar_fish","name":"Polar Fish","cargoTags":["food"]}
+  ],
+  "cargo":[
+    {"id":"marble_blocks","name":"Marmorblöcke","tag":"construction","trailers":["flatbed","lowbed"],"weightKg":24000},
+    {"id":"frozen_fish","name":"Tiefkühlfisch","tag":"food","trailers":["reefer"],"weightKg":18000}
+  ],
+  "trailers":[]
+}

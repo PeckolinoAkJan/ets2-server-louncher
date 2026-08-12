@@ -1,0 +1,11 @@
+node_modules
+.git
+data
+*.log
+webinterface.png
+app
+build
+db
+drizzle
+examples
+tests/rendered-html.test.mjs

@@ -1,0 +1,14 @@
+{
+  "panelUrl": "https://ets-server.vtc-truck-hub.de",
+  "steamOpenIdReturnUrl": "https://ets-server.vtc-truck-hub.de/api/client/auth/steam/callback",
+  "preferredMapProfile": "standard",
+  "dispatcherHotkey": "Tab",
+  "telemetryAutoStart": true,
+  "telemetryToken": "",
+  "localPort": 27110,
+  "enabledGames": ["ets2", "ats"],
+  "servers": [
+    {"id":"vtc-ets2-main","game":"ets2","name":"VTC Truck Hub ETS2","host":"159.195.60.60","port":27015},
+    {"id":"vtc-ats-main","game":"ats","name":"VTC Truck Hub ATS","host":"159.195.60.60","port":27017}
+  ]
+}

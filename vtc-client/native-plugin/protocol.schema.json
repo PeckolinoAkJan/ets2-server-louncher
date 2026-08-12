@@ -1,0 +1,16 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"VTC Truck Hub Native Integration Protocol",
+  "type":"object",
+  "required":["version","type","game"],
+  "properties":{
+    "version":{"const":1},
+    "type":{"enum":["hello","heartbeat","telemetry","command_result","job_completed"]},
+    "game":{"enum":["ets2","ats"]},
+    "gameVersion":{"type":"string"},
+    "pluginVersion":{"type":"string"},
+    "profileId":{"type":"string"},
+    "payload":{"type":"object"}
+  },
+  "additionalProperties":false
+}

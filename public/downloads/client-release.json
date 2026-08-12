@@ -1,0 +1,9 @@
+﻿{
+    "product":  "VTC Truck Hub ETS2 Client",
+    "version":  "0.6.0-test",
+    "channel":  "closed-test",
+    "format":  "exe",
+    "sha256":  "BDAA3F6EB80933E6ECC8E2A167CA5059E3F2CF2CAD332EF501AFA36F33C8048D",
+    "server":  "https://ets-server.vtc-truck-hub.de",
+    "file":  "VTC-ETS2-Client-Setup.exe"
+}

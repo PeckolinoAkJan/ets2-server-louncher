@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VTC Truck Hub ETS2 Client</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="logo">🚛 <strong>VTC TRUCK <b>HUB</b></strong></div>
+  <nav><button data-page="play" class="active">SPIELEN</button><button data-page="dispatcher">DISPATCHER</button><button data-page="settings">EINSTELLUNGEN</button></nav>
+  <span id="account">Nicht angemeldet</span>
+</header>
+<main>
+  <section id="play" class="page active">
+    <div class="hero"><h1>VTC Truck Hub</h1><p>ETS2 verbinden, Server auswählen und gemeinsam fahren.</p></div>
+    <div class="panel"><h2>Spiel und Server</h2>
+      <label>Spiel auswählen<select id="play-game"><option value="ets2">Euro Truck Simulator 2</option></select></label>
+      <div id="games"></div><h3>Passende VTC-Server</h3><div id="servers"></div>
+      <button id="steam" class="primary">VTC-KONTO UND STEAM VERBINDEN</button><button id="logout" class="secondary">ABMELDEN</button>
+    </div>
+  </section>
+  <section id="dispatcher" class="page">
+    <div class="panel wide"><div class="title"><div><small>VTC TRUCK HUB</small><h1>Deutscher Fracht-Dispatcher</h1></div><span>Öffnen im Spiel: TAB</span></div>
+      <form id="dispatch-form"><div class="grid">
+        <label>Spiel<select name="game"><option value="ets2">Euro Truck Simulator 2</option></select></label>
+        <label>Kartenprofil<select name="mapProfile"><option value="standard">Standardkarte</option><option value="promods">ProMods</option></select></label>
+        <label>Ausgangsstadt<select name="sourceCity"></select></label><label>Ausgangsfirma<select name="sourceCompany"></select></label>
+        <label>Zielstadt<select name="destinationCity"></select></label><label>Zielfirma<select name="destinationCompany"></select></label>
+        <label>Fracht<select name="cargo"></select></label><label>Trailer<select name="trailer"></select></label>
+        <label>Trailer-Modus<select name="trailerMode"><option value="provided">Trailer wird an der Firma gestellt</option><option value="owned" disabled>Eigener Trailer – folgt nach Ingame-Abnahme</option></select></label>
+        <label>Dringlichkeit<select name="urgency"><option value="normal">Normal</option><option value="dringend">Dringend</option><option value="sehr_dringend">Sehr dringend</option></select></label>
+      </div><label class="check"><input type="checkbox" name="navigateOnly"> Zunächst nur zur Ausgangsfirma navigieren</label><div id="summary"></div><button class="primary" type="submit">REALISTISCHEN AUFTRAG ERSTELLEN</button></form>
+    </div>
+  </section>
+  <section id="settings" class="page"><div class="panel"><h2>Einstellungen</h2><p>Steam-Anmeldung und VTC-Konto sind verpflichtend. Das TAB-Overlay läuft ausschließlich lokal auf diesem Fahrer-PC.</p><button id="setup-save" class="primary">SEPARATEN VTC-SPIELSTAND EINRICHTEN</button><p>Dabei wird nur eine neue Kopie eines Autosaves angelegt. Vorhandene Spielstände werden weder verändert noch gelöscht.</p><dl><dt>Panel</dt><dd id="panel-url"></dd><dt>Telemetrie-Autostart</dt><dd id="telemetry-auto"></dd><dt>Telemetrie-Status</dt><dd id="telemetry-status"></dd><dt>Dispatcher-Taste</dt><dd id="hotkey"></dd></dl></div></section>
+</main>
+<div id="toast"></div><script src="/app.js"></script>
+</body>
+</html>

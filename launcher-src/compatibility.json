@@ -1,0 +1,8 @@
+{
+  "launcherVersion": "0.7.0",
+  "channel": "stable",
+  "games": {
+    "ets2": { "supported": ["1.60"], "steamAppId": 227300 },
+    "ats": { "supported": ["1.60"], "steamAppId": 270880 }
+  }
+}

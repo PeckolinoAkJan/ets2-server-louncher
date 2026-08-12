@@ -1,0 +1,57 @@
+name: Build and release launcher
+on:
+  workflow_dispatch:
+  push:
+    tags: ['launcher-v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: Test server and local API
+        shell: pwsh
+        run: node --test tests/server.test.mjs vtc-client/tests/launcher.test.mjs vtc-client/tests/game-log-status.test.mjs
+      - name: Publish native launcher
+        shell: pwsh
+        run: dotnet publish launcher-src/VtcTruckHub.Launcher/VtcTruckHub.Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o launcher-src/publish
+      - name: Bundle local service without a visible console
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force launcher-src/publish/runtime-node,launcher-src/publish/lib,launcher-src/publish/ui,launcher-src/publish/catalog | Out-Null
+          Copy-Item (Get-Command node.exe).Source launcher-src/publish/runtime-node/node.exe
+          Copy-Item vtc-client/launcher.mjs,vtc-client/config.example.json launcher-src/publish/
+          Copy-Item vtc-client/lib/*.mjs launcher-src/publish/lib/
+          Copy-Item vtc-client/ui/* launcher-src/publish/ui/
+          Copy-Item vtc-client/catalog/*.json launcher-src/publish/catalog/
+      - name: Bundle licensed save decryptor for the dispatcher
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force launcher-src/publish/tools,launcher-src/publish/licenses/SII-Decrypt | Out-Null
+          git clone --depth 1 --branch bin https://github.com/ncs-sniper/SII_Decrypt.git launcher-src/sii-decrypt
+          $decryptor = Get-ChildItem launcher-src/sii-decrypt -Recurse -Filter SII_Decrypt.exe | Where-Object Length -gt 100000 | Select-Object -First 1
+          if (-not $decryptor) { throw 'SII_Decrypt executable was not found' }
+          Copy-Item $decryptor.FullName launcher-src/publish/tools/SII_Decrypt.exe
+          $license = Get-ChildItem launcher-src/sii-decrypt -Recurse -Filter license.txt | Select-Object -First 1
+          if ($license) { Copy-Item $license.FullName launcher-src/publish/licenses/SII-Decrypt/LICENSE.txt }
+          if ((Get-Item launcher-src/publish/tools/SII_Decrypt.exe).Length -lt 100000) { throw 'SII_Decrypt download is invalid' }
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' launcher-src/installer.iss
+      - name: Checksums
+        shell: pwsh
+        run: Get-FileHash launcher-src/artifacts/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $([IO.Path]::GetFileName($_.Path))" } | Set-Content launcher-src/artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VTC-Truck-Hub-Launcher
+          path: launcher-src/artifacts/*
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: launcher-src/artifacts/*
+          generate_release_notes: true

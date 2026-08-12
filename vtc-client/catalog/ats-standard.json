@@ -1,0 +1,30 @@
+{
+  "game": "ats", "profile": "standard", "label": "ATS Standardkarte",
+  "cities": [
+    {"id":"phoenix","name":"Phoenix","companies":["wallbert","charged"]},
+    {"id":"los_angeles","name":"Los Angeles","companies":["aport","wallbert"]},
+    {"id":"las_vegas","name":"Las Vegas","companies":["sellgoods","charged"]},
+    {"id":"denver","name":"Denver","companies":["bitumen","wallbert"]}
+  ],
+  "companies": [
+    {"id":"wallbert","name":"Wallbert","cargoTags":["general","food"]},
+    {"id":"charged","name":"Charged","cargoTags":["machinery","general"]},
+    {"id":"aport","name":"A-Port","cargoTags":["containers"]},
+    {"id":"sellgoods","name":"SellGoods","cargoTags":["general","food"]},
+    {"id":"bitumen","name":"Bitumen","cargoTags":["construction"]}
+  ],
+  "cargo": [
+    {"id":"packaged_food","name":"Verpackte Lebensmittel","tag":"food","trailers":["dryvan","reefer"],"weightKg":19000},
+    {"id":"electronics","name":"Elektronik","tag":"general","trailers":["dryvan"],"weightKg":14000},
+    {"id":"forklifts","name":"Gabelstapler","tag":"machinery","trailers":["flatbed"],"weightKg":18000},
+    {"id":"containers","name":"Container","tag":"containers","trailers":["container"],"weightKg":23000},
+    {"id":"road_roller","name":"Straßenwalze","tag":"construction","trailers":["lowboy"],"weightKg":21000}
+  ],
+  "trailers": [
+    {"id":"dryvan","name":"Kofferauflieger","owned":true,"states":["*"]},
+    {"id":"reefer","name":"Kühlauflieger","owned":true,"states":["*"]},
+    {"id":"flatbed","name":"Flachbett","owned":true,"states":["*"]},
+    {"id":"container","name":"Containerchassis","owned":true,"states":["*"]},
+    {"id":"lowboy","name":"Tieflader","owned":true,"states":["*"]}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "ets2-server-control",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted ETS2 Dedicated Server web control panel",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node --watch server.mjs",
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

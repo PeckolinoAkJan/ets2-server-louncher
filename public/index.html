@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07131d">
+  <title>Truck Simulator Server Control</title>
+  <link rel="stylesheet" href="/style.css?v=3.0.0">
+  <link rel="stylesheet" href="/telemetry.css?v=3.0.0">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <section id="auth" class="auth-shell">
+    <div class="auth-card">
+      <div class="brand big"><span class="truck">🚛</span><span>VTC TRUCK <b>HUB</b></span></div>
+      <p class="eyebrow">ETS2 SERVER CONTROL</p>
+      <h1 id="auth-title">Sicher anmelden</h1>
+      <p id="auth-copy" class="muted">Verwalte deinen Dedicated Server an einem Ort.</p>
+      <form id="auth-form">
+        <label>Benutzername<input id="username" autocomplete="username" minlength="3" required></label>
+        <label>Passwort<input id="password" type="password" autocomplete="current-password" minlength="12" required></label>
+        <label id="confirm-wrap" hidden>Passwort wiederholen<input id="confirm" type="password" autocomplete="new-password"></label>
+        <button class="primary full" id="auth-submit">ANMELDEN</button>
+      </form>
+      <p class="secure-note">🔒 Zugangsdaten werden geschützt auf deinem Server gespeichert.</p>
+    </div>
+  </section>
+
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand"><span class="truck">🚛</span><span>VTC TRUCK <b>HUB</b></span></div>
+      <nav id="nav">
+        <button class="nav active" data-page="overview"><span>▦</span> ÜBERSICHT</button>
+        <button class="nav" data-page="players"><span>♟</span> SPIELER</button>
+        <button class="nav" data-page="map"><span>◆</span> KARTE</button>
+        <button class="nav" data-page="convoys"><span>▰</span> KONVOIS</button>
+        <button class="nav" data-page="mods"><span>✚</span> SERVER-PAKETE</button>
+        <button class="nav" data-page="config"><span>⚙</span> SERVER-CFG</button>
+        <button class="nav" data-page="logs"><span>▤</span> PROTOKOLLE</button>
+        <button class="nav" data-page="backups"><span>◉</span> BACKUPS</button>
+        <button class="nav" data-page="settings"><span>☷</span> EINSTELLUNGEN</button>
+        <button class="nav" data-page="drivers"><span>♟</span> REGISTRIERUNGEN</button>
+      </nav>
+      <div class="server-time"><span>◷ &nbsp; SERVERZEIT</span><strong id="clock">--:--:--</strong><small id="date">--.--.----</small></div>
+    </aside>
+
+    <main>
+      <header>
+        <button id="mobile-menu" aria-label="Menü öffnen">☰</button>
+        <h1 id="page-title">ETS2 SERVER CONTROL</h1>
+        <div class="header-right"><label class="game-switch"><span>SPIEL</span><select id="game-switch"><option value="ets2">ETS2 · Europe</option><option value="ats">ATS · USA</option></select></label><span class="server-select">▤ &nbsp; <b id="header-name">Community Server #1</b></span><span class="user"><i></i><b id="user-name">admin</b></span><button id="logout" class="icon-button" title="Abmelden">↪</button></div>
+      </header>
+
+      <div class="content">
+        <section class="page active" id="page-overview">
+          <div class="actions">
+            <button class="start" data-action="start">▶ &nbsp; SERVER STARTEN</button>
+            <button class="stop" data-action="stop">■ &nbsp; STOPPEN</button>
+            <button class="restart" data-action="restart">⟳ &nbsp; NEUSTART</button>
+          </div>
+          <div id="install-banner" class="install-banner" hidden>
+            <div><b id="install-title">ETS2 Dedicated Server noch nicht installiert</b><span id="install-copy">Der Assistent installiert SteamCMD und ETS2 automatisch.</span></div>
+            <button id="install-button" class="primary">JETZT INSTALLIEREN</button>
+          </div>
+          <div class="top-grid">
+            <article class="card server-card">
+              <div class="status-title"><span class="pulse" id="status-dot"></span><b id="status-text">SERVER OFFLINE</b></div>
+              <dl><dt>🎮 &nbsp; <span id="game-label">Euro Truck Simulator 2</span></dt><dd></dd><dt>🏷 &nbsp; Installation</dt><dd id="installed">Prüfung …</dd><dt>◷ &nbsp; Systemlaufzeit</dt><dd id="uptime">–</dd><dt>🌐 &nbsp; Such-ID</dt><dd id="search-id">–</dd></dl>
+              <div class="truck-art">🚛</div>
+            </article>
+            <article class="stat card blue"><span class="stat-icon">♟</span><div><small>SPIELER</small><strong id="player-count">0 / 8</strong></div><div class="spark"></div></article>
+            <article class="stat card cyan"><span class="stat-icon">⌁</span><div><small>STATUS</small><strong id="connection">Offline</strong></div><div class="spark"></div></article>
+            <article class="stat card green"><span class="stat-icon">▣</span><div><small>CPU</small><strong id="cpu">0 %</strong></div><div class="spark"></div></article>
+            <article class="stat card purple"><span class="stat-icon">▦</span><div><small>RAM</small><strong id="ram">0 / 0 GB</strong></div><div class="spark"></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <div>
+              <article class="card map-card">
+                <h2><span class="online-dot"></span> LIVE-KARTE <em>Telemetrie bereit</em></h2>
+                <div class="map-canvas live-map" id="overview-map">
+                  <div class="map-controls"><button>＋</button><button>−</button><button>⌖</button></div>
+                  <span class="city c1">London</span><span class="city c2">Paris</span><span class="city c3">Amsterdam</span><span class="city c4">Hamburg</span><span class="city c5">Berlin</span><span class="city c6">München</span><span class="city c7">Praha</span><span class="city c8">Rotterdam</span>
+                  <div class="route"></div><span class="route-truck">🚚</span><span class="flag">⚑</span>
+                </div>
+              </article>
+              <article class="card activity"><h2>▥ &nbsp; SERVER-AKTIVITÄT <button>24 STUNDEN⌄</button></h2><div class="chart"><div class="area"></div><div class="chart-line"></div><span>17:00</span><span>23:00</span><span>05:00</span><span>11:00</span><span>17:00</span></div></article>
+            </div>
+            <div class="right-column">
+              <article class="card players"><h2>♟ &nbsp; AKTIVE SPIELER <button data-goto="players">ALLE ANSEHEN</button></h2><div id="player-list" class="empty-state">Noch keine Live-Spielerdaten<br><small>Eine Telemetriequelle kann später angebunden werden.</small></div></article>
+              <article class="card convoy"><h2>▰ &nbsp; NÄCHSTER KONVOI</h2><strong>Berlin <b>→</b> Rotterdam</strong><p>▣ Termin noch nicht geplant &nbsp; ♟ 0 Teilnehmer</p></article>
+              <article class="card quick"><h2>ϟ &nbsp; SCHNELLZUGRIFF</h2><div><button data-goto="config">📣<span>ANKÜNDIGUNG</span></button><button data-goto="mods">⟳<span>PAKETE LADEN</span></button><button id="quick-backup">◉<span>BACKUP ERSTELLEN</span></button></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-players"><div class="section-head"><div><p class="eyebrow">LIVE-MONITORING</p><h2>Spieler</h2></div><button class="secondary refresh">AKTUALISIEREN</button></div><article class="card table-card"><table><thead><tr><th>Spieler</th><th>Steam-ID</th><th>Ping</th><th>Stadt / Firma</th><th>Quelle</th></tr></thead><tbody id="players-table"><tr><td colspan="5" class="empty-cell">Keine verbundenen Spieler.</td></tr></tbody></table></article></section>
+        <section class="page" id="page-map"><div class="section-head"><div><p class="eyebrow" id="map-region">EUROPA</p><h2>Live-Karte</h2></div></div><article class="card info-box"><b id="telemetry-status">Live-Telemetrie aktiv</b><p>Server-Log-Spieler erscheinen automatisch. Exakte Positionen, Stadt, Firma und Geschwindigkeit kommen über den VTC-Telemetrie-Client der Fahrer.</p></article><article class="card map-card large"><div class="map-canvas live-map" id="large-map"><div id="map-players"></div></div></article></section>
+        <section class="page" id="page-convoys"><div class="section-head"><div><p class="eyebrow">EVENTS</p><h2>Konvois</h2></div><button class="primary" id="convoy-new">＋ KONVOI PLANEN</button></div><div class="cards-3"><article class="card convoy detail"><span class="badge">ENTWURF</span><strong>Berlin <b>→</b> Rotterdam</strong><p>Datum und Uhrzeit festlegen</p><button class="secondary">BEARBEITEN</button></article><article class="card empty-card"><b>Konvoi-Verwaltung</b><p>Plane Routen und veröffentliche sie als Ankündigung für deine Community.</p></article></div></section>
+        <section class="page" id="page-mods"><div class="section-head"><div><p class="eyebrow" id="packages-game-label">ETS2 · ERFORDERLICHE SPIELDATEIEN</p><h2>Server-Pakete</h2></div></div><article class="card info-box"><b>So erzeugst du die Dateien</b><p>Starte <span id="packages-game-name">ETS2</span> mit deiner gewünschten Karte und Mod-Liste. Aktiviere die Konsole und führe <code>export_server_packages</code> aus. Lade anschließend beide Dateien hier hoch. Die Pakete werden für ETS2 und ATS getrennt gespeichert.</p></article><div class="cards-2" id="package-cards"></div><label class="upload card">⬆<b>server_packages.sii oder server_packages.dat hochladen</b><span id="package-upload-game">Für ETS2 · maximal 40 MB pro Datei</span><input id="package-upload" type="file" accept=".sii,.dat" multiple></label></section>
+        <section class="page" id="page-config"><div class="section-head"><div><p class="eyebrow" id="config-game-label">ETS2 · KONFIGURATION</p><h2 id="config-heading">ETS2 Server-CFG</h2></div><button class="primary" form="config-form">SPEICHERN</button></div><form id="config-form" class="card form-grid"><label>Serveranzeige<input name="server_name" maxlength="63"></label><label>Lobby-Name<input name="lobby_name" maxlength="63" required></label><label class="wide">Beschreibung<input name="description" maxlength="63"></label><label class="wide">Willkommensnachricht<textarea name="welcome_message" maxlength="127"></textarea></label><label>Serverpasswort<input name="password" type="password" maxlength="63" placeholder="Leer = öffentlich"></label><label>Maximale Spieler<input name="max_players" type="number" min="1" max="128"></label><label class="wide">Steam Game Server Login Token<input name="server_logon_token" type="password" maxlength="128" autocomplete="off"><small>Optional. Geheimwert wird nur auf deinem Server gespeichert.</small></label><label>Aufbewahrte Backups<input name="backup_retention" type="number" min="1" max="50"></label></form></section>
+        <section class="page" id="page-logs"><div class="section-head"><div><p class="eyebrow">DIAGNOSE</p><h2>Protokolle</h2></div><div><select id="log-kind"><option value="server">Server</option><option value="install">Installation</option><option value="audit">Audit</option></select><button class="secondary" id="refresh-logs">AKTUALISIEREN</button></div></div><pre class="card log-view" id="log-view">Protokoll wird geladen …</pre></section>
+        <section class="page" id="page-backups"><div class="section-head"><div><p class="eyebrow">DATENSICHERUNG</p><h2>Backups</h2></div><button class="primary" id="create-backup">＋ BACKUP ERSTELLEN</button></div><article class="card table-card"><table><thead><tr><th>Datei</th><th>Erstellt</th><th>Größe</th><th>Aktionen</th></tr></thead><tbody id="backup-table"></tbody></table></article></section>
+        <section class="page" id="page-settings"><div class="section-head"><div><p class="eyebrow">SYSTEM</p><h2>Einstellungen</h2></div></div><div class="cards-2"><article class="card setting-card"><h3>ETS2/ATS Windows-Launcher</h3><p>Installiert den nativen Launcher und TAB-Dispatcher ohne sichtbares PowerShell-Fenster. Spielstände und Save-Adapter bleiben ausschließlich lokal.</p><a class="primary button-link" href="https://github.com/PeckolinoAkJan/ets2-server-louncher/releases/latest" target="_blank" rel="noopener">WINDOWS-LAUNCHER INSTALLIEREN (.EXE)</a><p><small id="client-release-info">Version 0.8.0 · GitHub Release</small></p></article><article class="card setting-card"><h3 id="settings-game-title">ETS2 Dedicated Server</h3><p id="settings-game-copy">Installiert oder aktualisiert die ausgewählte Anwendung über SteamCMD.</p><button class="primary" id="settings-install">INSTALLIEREN / AKTUALISIEREN</button></article><article class="card setting-card"><h3>Sicherheit</h3><p>Passwörter werden mit scrypt gehasht. Sitzungen sind HttpOnly, CSRF-geschützt und zeitlich begrenzt. Jede Verwaltungsaktion landet im Audit-Protokoll.</p></article><article class="card setting-card"><h3>Netzwerk</h3><p id="settings-network-copy">Freigaben werden passend zum ausgewählten Spiel angezeigt.</p></article><article class="card setting-card"><h3>Updates</h3><p>Updates werden kontrolliert über SteamCMD eingespielt. Stoppe den Server vorher, wenn du maximale Sicherheit möchtest.</p><button class="secondary" data-action="update">SERVER AKTUALISIEREN</button></article></div></section>
+        <section class="page" id="page-drivers"><div class="section-head"><div><p class="eyebrow">ZUGANGSKONTROLLE</p><h2>Fahrerregistrierungen</h2></div><button class="secondary" id="refresh-drivers">AKTUALISIEREN</button></div><article class="card info-box"><b>Getrennte Berechtigungen</b><p>Fahrerkonten dürfen ausschließlich Launcher, Serverliste, Dispatcher und Telemetrie verwenden. Serversteuerung, CFG, Pakete und Backups bleiben Administratoren vorbehalten.</p></article><article class="card table-card"><table><thead><tr><th>Fahrer</th><th>Steam-ID</th><th>Registriert</th><th>Status</th><th>Aktionen</th></tr></thead><tbody id="drivers-table"><tr><td colspan="5" class="empty-cell">Registrierungen werden geladen …</td></tr></tbody></table></article></section>
+      </div>
+    </main>
+  </div>
+  <dialog id="confirm-dialog"><form method="dialog"><h3 id="dialog-title">Aktion bestätigen</h3><p id="dialog-copy"></p><div><button value="cancel" class="secondary">ABBRECHEN</button><button value="confirm" class="stop">BESTÄTIGEN</button></div></form></dialog>
+  <script src="/app.js?v=3.0.0" defer></script>
+</body>
+</html>

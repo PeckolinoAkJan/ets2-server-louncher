@@ -1,0 +1,13 @@
+{
+  "game":"ats", "profile":"promods", "label":"ATS ProMods Canada",
+  "extends":"ats-standard.json",
+  "cities":[
+    {"id":"vancouver","name":"Vancouver","companies":["canadian_ports","maple_logistics"]},
+    {"id":"prince_george","name":"Prince George","companies":["maple_logistics"]}
+  ],
+  "companies":[
+    {"id":"canadian_ports","name":"Canadian Ports","cargoTags":["containers"]},
+    {"id":"maple_logistics","name":"Maple Logistics","cargoTags":["general","machinery"]}
+  ],
+  "cargo":[], "trailers":[]
+}

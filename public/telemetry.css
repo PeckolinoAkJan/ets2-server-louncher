@@ -1,0 +1,2 @@
+#overview-players,#map-players{position:absolute;inset:0;z-index:7}
+.has-live-telemetry>.city,.has-live-telemetry>.route,.has-live-telemetry>.route-truck,.has-live-telemetry>.flag{display:none}

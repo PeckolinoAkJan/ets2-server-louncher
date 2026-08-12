@@ -1,0 +1,11 @@
+using System.Text.Json.Serialization;
+namespace VtcTruckHub.Launcher;
+public sealed record GameInfo(string Id,string Exe,string SteamAppId,string Documents,bool Installed,string? Executable,string ProfileDir);
+public sealed record ServerInfo(string Id,string Game,string Name,string Host,int Port);
+public sealed record AccountInfo(string SteamId,string VtcAccountId,string DisplayName,string? Role);
+public sealed record ClientConfig(string PanelUrl,string PreferredMapProfile,string DispatcherHotkey,bool TelemetryAutoStart,string[] EnabledGames);
+public sealed record ClientStatus(GameInfo[] Games,ServerInfo[] Servers,AccountInfo? Account,ClientConfig Config);
+public sealed record DeviceStart(string DeviceCode,string UserCode,string VerificationUri,int ExpiresIn,int Interval);
+public sealed record TokenResult(string? Status,string? AccessToken,AccountInfo? Account,string? Error);
+public sealed record LaunchResult(bool Ok,string Game,ServerInfo Server,string Connection,string Message);
+public sealed record ConnectionResult(string Status,string Message,ServerInfo? Server);
