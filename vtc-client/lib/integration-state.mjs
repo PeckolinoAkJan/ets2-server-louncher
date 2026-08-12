@@ -9,7 +9,13 @@ export const STATES = Object.freeze({
 export class IntegrationState {
   constructor(){this.active=null;this.events=[];this.plugin=null;}
   connectPlugin(info){if(!['ets2','ats'].includes(info.game))throw new Error('Ungültiges Plugin-Spiel');this.plugin={...info,connectedAt:new Date().toISOString(),lastSeen:Date.now()};this.event('plugin_connected',info);return this.snapshot();}
-  heartbeat(data={}){if(!this.plugin)throw new Error('Ingame-Plugin ist nicht verbunden');this.plugin={...this.plugin,...data,lastSeen:Date.now()};return this.snapshot();}
+  heartbeat(data={}){
+    if(!this.plugin){
+      if(!['ets2','ats'].includes(data.game))throw new Error('Ingame-Plugin ist nicht verbunden');
+      return this.connectPlugin(data);
+    }
+    this.plugin={...this.plugin,...data,lastSeen:Date.now()};return this.snapshot();
+  }
   disconnect(data={}){if(this.plugin)this.event('plugin_disconnected',{...data,game:this.plugin.game});this.plugin=null;return this.snapshot();}
   reserve(offer){this.active={...offer,nonce:crypto.randomBytes(16).toString('hex'),state:STATES.RESERVED,updatedAt:new Date().toISOString(),error:null};this.event('offer_reserved',{id:offer.id});return this.snapshot();}
   command(telemetry={}){if(!this.active)return{type:'idle'};const a=this.active;if(!this.plugin||Date.now()-this.plugin.lastSeen>5000)return{type:'wait_plugin',offerId:a.id};if(this.plugin.game!==a.game)return{type:'wrong_game',expected:a.game,actual:this.plugin.game};

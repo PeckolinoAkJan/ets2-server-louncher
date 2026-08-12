@@ -40,7 +40,8 @@ void loop(){
     State copy;{std::lock_guard lock(state_mutex);copy=state;}
     char json[1536];
     sprintf_s(json,R"({"plugin":{"game":"%s","gameVersion":"unknown","pluginVersion":"0.1.0","profileId":"native"},"telemetry":{"x":%.4f,"y":%.4f,"z":%.4f,"heading":%.6f,"speed":%.3f,"lights":%s,"beacon":%s}})",game_id.c_str(),copy.x,copy.y,copy.z,copy.heading,copy.speed,copy.lights?"true":"false",copy.beacon?"true":"false");
-    post(L"/api/integration/command",json);
+    const auto response=post(L"/api/integration/command",json);
+    if(response.empty())post(L"/api/integration/hello",hello);
     for(int i=0;i<10&&running;i++)Sleep(100);
   }
   post(L"/api/integration/disconnect",R"({"reason":"plugin_shutdown"})");

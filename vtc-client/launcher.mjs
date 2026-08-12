@@ -15,11 +15,13 @@ import { MultiplayerClient } from "./lib/multiplayer-client.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const RUNTIME_VERSION='0.9.1';
-const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();let multiplayerClient=null;
+const RUNTIME_VERSION='0.9.2';
+const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();let multiplayerClient=null,recoveryPromise=null;
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
 const testManifestFile=path.join(ROOT,'active-test-save.json');
+const activeLaunchFile=path.join(ROOT,'active-launch.json');
+if(existsSync(activeLaunchFile)){try{const saved=parseJsonFile(activeLaunchFile);if(saved?.game&&saved?.server)launches.set(saved.game,saved);}catch{}}
 const saveJobs=new SaveJobService(ROOT);
 function activeTestSave(){
   if(!existsSync(testManifestFile))return null;
@@ -50,6 +52,12 @@ function connectionStatus(game){
 let telemetryService=null;
 function telemetryStatus(){return{configured:Boolean(sessions.get('local')?.accessToken),running:Boolean(telemetryService?.timer),lastError:telemetryService?.lastError||null};}
 function startTelemetry(game='ets2') { const auth=sessions.get('local'),account=auth?.account;if(!config.telemetryAutoStart||!auth?.accessToken||!account)return false;telemetryService?.stop();telemetryService=new TelemetryService({panelUrl:config.panelUrl,token:auth.accessToken,game,driverName:account.displayName,steamId:account.steamId,clientAuth:true});telemetryService.start();return true; }
+async function recoverMultiplayer(game){
+  if(multiplayerClient?.game===game&&multiplayerClient.session)return multiplayerClient;
+  if(recoveryPromise)return recoveryPromise;
+  recoveryPromise=(async()=>{const auth=sessions.get('local');if(!auth?.accessToken)return null;let launch=launches.get(game),selected=launch?.server||(config.servers||[]).find(server=>server.game===game);if(!selected)return null;const live=await currentServer(selected,auth);if(!live.running)return null;const client=new MultiplayerClient({panelUrl:config.panelUrl,accessToken:auth.accessToken,game,serverId:live.id,clientVersion:RUNTIME_VERSION,pluginVersion:integration.plugin?.pluginVersion||'not-connected'});await client.join(config.preferredMapProfile||'standard');multiplayerClient=client;launch={game,server:live,startedAt:launch?.startedAt||Date.now(),logOffset:launch?.logOffset||0,searchId:live.searchId};launches.set(game,launch);writeFileSync(activeLaunchFile,JSON.stringify(launch,null,2));return client;})().finally(()=>{recoveryPromise=null;});
+  return recoveryPromise;
+}
 function send(res,status,data,type='application/json; charset=utf-8'){const body=type.startsWith('application/json')?JSON.stringify(data):data;res.writeHead(status,{'content-type':type,'cache-control':'no-store','content-length':Buffer.byteLength(body)});res.end(body);}
 async function body(req){let value='';for await(const c of req){value+=c;if(value.length>1e6)throw new Error('Anfrage zu groß');}return value?JSON.parse(value):{};}
 function staticFile(res,name){const file=path.resolve(ROOT,'ui',name);if(!file.startsWith(path.resolve(ROOT,'ui'))||!existsSync(file))return send(res,404,'Nicht gefunden','text/plain');const ext=path.extname(file);send(res,200,readFileSync(file),ext==='.html'?'text/html; charset=utf-8':ext==='.css'?'text/css; charset=utf-8':'text/javascript; charset=utf-8');}
@@ -89,6 +97,7 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
   if(url.pathname==='/api/integration/disconnect'&&req.method==='POST'){return send(res,200,integration.disconnect(await body(req)));}
   if(url.pathname==='/api/integration/command'&&req.method==='POST'){
     const input=await body(req),telemetry=input.telemetry||{};integration.heartbeat(input.plugin||{});
+    if(!multiplayerClient?.session)await recoverMultiplayer(input.plugin?.game).catch(()=>null);
     const command=integration.command(telemetry);let multiplayer=null;
     if(multiplayerClient?.session){try{multiplayer=await multiplayerClient.heartbeat(telemetry);}catch(error){multiplayer={error:error.message};}}
     return send(res,200,{...command,multiplayer});
@@ -109,7 +118,7 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
     const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,steam=steamExecutable(game);if(!steam)return send(res,409,{error:'Steam.exe wurde zur Spielinstallation nicht gefunden.'});
     const args=steamLaunchArguments(game,live);
     spawn(steam,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();if(!await waitForGame(game))return send(res,504,{error:'Steam hat das Spiel innerhalb von 30 Sekunden nicht gestartet. Bitte Steam öffnen und den Start erneut versuchen.'});
-    launches.set(input.game,{server:live,startedAt:Date.now(),logOffset,searchId:live.searchId});startTelemetry(input.game);
+    const launchState={game:input.game,server:live,startedAt:Date.now(),logOffset,searchId:live.searchId};launches.set(input.game,launchState);writeFileSync(activeLaunchFile,JSON.stringify(launchState,null,2));startTelemetry(input.game);
     return send(res,202,{ok:true,game:input.game,server:live,connection:'hybrid-pending',message:'Spiel gestartet. Nach der Profilauswahl verbindet ETS2 automatisch mit dem VTC-Convoy; der Launcher bestätigt erst den echten Beitritt.'});
   }
   if(url.pathname==='/'||url.pathname==='/index.html')return staticFile(res,'index.html');if(url.pathname==='/ingame.html')return staticFile(res,'ingame.html');if(url.pathname==='/app.js')return staticFile(res,'app.js');if(url.pathname==='/style.css')return staticFile(res,'style.css');return send(res,404,{error:'Nicht gefunden'});
