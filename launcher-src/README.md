@@ -1,6 +1,6 @@
 # VTC Truck Hub Launcher
 
-Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite und benötigt kein sichtbares PowerShell- oder Konsolenfenster. Die EXE startet die gebündelte lokale Node-Laufzeit selbst. Der TAB-Dispatcher ist direkt in die native Anwendung integriert.
+Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite und benötigt kein sichtbares PowerShell- oder Konsolenfenster. Die EXE startet die gebündelte lokale Node-Laufzeit selbst. Der TAB-Dispatcher ist direkt mit der modernen Microsoft-WebView2-Komponente in die native Anwendung integriert.
 
 ## Serverbeitritt
 

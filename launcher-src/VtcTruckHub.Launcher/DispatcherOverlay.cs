@@ -1,15 +1,15 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Interop;
+using Microsoft.Web.WebView2.Wpf;
 
 namespace VtcTruckHub.Launcher;
 
 public sealed class DispatcherOverlay : Window, IDisposable
 {
     readonly GlobalTabHook hook;
-    readonly WebBrowser browser = new();
+    readonly WebView2 browser = new();
 
     public DispatcherOverlay()
     {
@@ -18,7 +18,13 @@ public sealed class DispatcherOverlay : Window, IDisposable
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(7, 18, 27));
         Content = browser;
-        browser.Navigate("http://127.0.0.1:27110/ingame.html");
+        Loaded += async (_, _) =>
+        {
+            await browser.EnsureCoreWebView2Async();
+            browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            browser.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            browser.Source = new Uri("http://127.0.0.1:27110/ingame.html");
+        };
         hook = new GlobalTabHook(Toggle, IsSimulatorForeground);
     }
 
@@ -29,7 +35,7 @@ public sealed class DispatcherOverlay : Window, IDisposable
             if (IsVisible) { Hide(); return; }
             Left = SystemParameters.WorkArea.Left + Math.Max(0, (SystemParameters.WorkArea.Width - Width) / 2);
             Top = SystemParameters.WorkArea.Top + Math.Max(0, (SystemParameters.WorkArea.Height - Height) / 2);
-            browser.Refresh(); Show(); Activate();
+            browser.CoreWebView2?.Reload(); Show(); Activate();
         });
     }
 
