@@ -39,3 +39,8 @@ jobs:
           Expand-Archive scs_sdk.zip -DestinationPath scs_sdk
           cmake -S vtc-client/native-plugin -B vtc-client/native-plugin/build -A x64 "-DSCS_SDK_INCLUDE=$pwd/scs_sdk/include"
           cmake --build vtc-client/native-plugin/build --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multiplayer-native-smoke
+          path: vtc-client/native-plugin/build/Release/vtc_truck_hub.dll
+          if-no-files-found: error
