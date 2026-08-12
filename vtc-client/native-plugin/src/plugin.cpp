@@ -33,7 +33,18 @@ std::string post(const wchar_t* route,const std::string& body){
 void on_float(const scs_string_t,scs_u32_t,const scs_value_t* value,void* context){if(!value)return;std::lock_guard lock(state_mutex);auto target=static_cast<double*>(context);*target=value->value_float.value;}
 void on_dplacement(const scs_string_t,scs_u32_t,const scs_value_t* value,void*){if(!value)return;std::lock_guard lock(state_mutex);state.x=value->value_dplacement.position.x;state.y=value->value_dplacement.position.y;state.z=value->value_dplacement.position.z;state.heading=value->value_dplacement.orientation.heading;}
 void on_bool(const scs_string_t,scs_u32_t,const scs_value_t* value,void* context){if(!value)return;std::lock_guard lock(state_mutex);*static_cast<bool*>(context)=value->value_bool.value!=0;}
-void loop(){const auto hello=std::string{"{\"game\":\""}+game_id+"\",\"gameVersion\":\"unknown\",\"pluginVersion\":\"0.1.0\",\"profileId\":\"native\"}";post(L"/api/integration/hello",hello);while(running){State copy;{std::lock_guard lock(state_mutex);copy=state;}char json[1024];sprintf_s(json,R"({"state":{"x":%.4f,"y":%.4f,"z":%.4f,"heading":%.6f,"speed":%.3f,"lights":%s,"beacon":%s}})",copy.x,copy.y,copy.z,copy.heading,copy.speed,copy.lights?"true":"false",copy.beacon?"true":"false");post(L"/api/multiplayer/heartbeat",json);for(int i=0;i<10&&running;i++)Sleep(100);}post(L"/api/integration/disconnect",R"({"reason":"plugin_shutdown"})");}
+void loop(){
+  const auto hello=std::string{"{\"game\":\""}+game_id+"\",\"gameVersion\":\"unknown\",\"pluginVersion\":\"0.1.0\",\"profileId\":\"native\"}";
+  post(L"/api/integration/hello",hello);
+  while(running){
+    State copy;{std::lock_guard lock(state_mutex);copy=state;}
+    char json[1536];
+    sprintf_s(json,R"({"plugin":{"game":"%s","gameVersion":"unknown","pluginVersion":"0.1.0","profileId":"native"},"telemetry":{"x":%.4f,"y":%.4f,"z":%.4f,"heading":%.6f,"speed":%.3f,"lights":%s,"beacon":%s}})",game_id.c_str(),copy.x,copy.y,copy.z,copy.heading,copy.speed,copy.lights?"true":"false",copy.beacon?"true":"false");
+    post(L"/api/integration/command",json);
+    for(int i=0;i<10&&running;i++)Sleep(100);
+  }
+  post(L"/api/integration/disconnect",R"({"reason":"plugin_shutdown"})");
+}
 }
 
 SCSAPI_RESULT scs_telemetry_init(const scs_u32_t version,const scs_telemetry_init_params_t* params){

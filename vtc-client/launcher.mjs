@@ -87,7 +87,12 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
   if(url.pathname==='/api/integration/hello'&&req.method==='POST'){const input=await body(req);return send(res,200,integration.connectPlugin(input));}
   if(url.pathname==='/api/integration/heartbeat'&&req.method==='POST'){const input=await body(req);return send(res,200,integration.heartbeat(input));}
   if(url.pathname==='/api/integration/disconnect'&&req.method==='POST'){return send(res,200,integration.disconnect(await body(req)));}
-  if(url.pathname==='/api/integration/command'&&req.method==='POST'){const input=await body(req);integration.heartbeat(input.plugin||{});return send(res,200,integration.command(input.telemetry||{}));}
+  if(url.pathname==='/api/integration/command'&&req.method==='POST'){
+    const input=await body(req),telemetry=input.telemetry||{};integration.heartbeat(input.plugin||{});
+    const command=integration.command(telemetry);let multiplayer=null;
+    if(multiplayerClient?.session){try{multiplayer=await multiplayerClient.heartbeat(telemetry);}catch(error){multiplayer={error:error.message};}}
+    return send(res,200,{...command,multiplayer});
+  }
   if(url.pathname==='/api/integration/result'&&req.method==='POST'){return send(res,200,integration.result(await body(req)));}
   if(url.pathname==='/api/integration/complete'&&req.method==='POST'){return send(res,200,integration.complete(await body(req)));}
   if(url.pathname==='/api/game/connection-status'&&req.method==='GET')return send(res,200,connectionStatus(url.searchParams.get('game')||'ets2'));
