@@ -4,11 +4,11 @@ Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite un
 
 ## Serverbeitritt
 
-„Server beitreten“ startet ETS2 beziehungsweise ATS mit dem SCS-Parameter `-connect Host:Port`. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschließenden Klick auf „Spielen“ tritt es automatisch dem vorgemerkten VTC-Server bei. Der Launcher überwacht `game.log.txt` und unterscheidet „Spiel startet“, „Profil geladen“ und „Server verbunden“.
+„Server beitreten“ startet ETS2 beziehungsweise ATS über `steam.exe -silent -applaunch` und übergibt die aktuelle SCS-Session-ID mit `+connect_lobby`. Dadurch erscheint kein zusätzlicher Steam-Dialog zur Bestätigung der Startparameter. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschließenden Klick auf „Spielen“ tritt es automatisch dem VTC-Server bei. Der Launcher meldet „gestartet“ erst nach Erkennung des echten Spielprozesses und überwacht anschließend `game.log.txt`.
 
 ## Release
 
-Ein Tag wie `launcher-v0.8.0` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
+Ein Tag wie `launcher-v0.8.1` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
 
 ## Updates
 

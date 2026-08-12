@@ -27,7 +27,7 @@ public sealed class DispatcherOverlay : Window, IDisposable
             await browser.EnsureCoreWebView2Async();
             browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
             browser.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-            browser.Source = new Uri("http://127.0.0.1:27110/ingame.html");
+            browser.Source = new Uri("http://127.0.0.1:27111/ingame.html");
         };
         hook = new GlobalTabHook(Toggle, IsSimulatorForeground);
     }

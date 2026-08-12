@@ -6,6 +6,7 @@ namespace VtcTruckHub.Launcher;
 
 public sealed class RuntimeService : IDisposable
 {
+    private const string ExpectedRuntimeVersion = "0.8.1";
     private readonly string root = AppContext.BaseDirectory;
     private Process? serviceProcess;
 
@@ -50,7 +51,10 @@ public sealed class RuntimeService : IDisposable
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
-            return (await http.GetAsync("http://127.0.0.1:27110/api/status")).IsSuccessStatusCode;
+            var response = await http.GetAsync("http://127.0.0.1:27111/api/status");
+            if (!response.IsSuccessStatusCode) return false;
+            var body = await response.Content.ReadAsStringAsync();
+            return body.Contains($"\"runtimeVersion\":\"{ExpectedRuntimeVersion}\"");
         }
         catch { return false; }
     }

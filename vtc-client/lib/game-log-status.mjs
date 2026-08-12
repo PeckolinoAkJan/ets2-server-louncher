@@ -14,6 +14,7 @@ export function readGameLogStatus(file,expectedSlot){if(!existsSync(file))return
 
 export function parseConnectionStatus(text,server){
   if(/\[MP\].*connected,\s*client_id\s*=/i.test(text)||/\[MP\]\s+Game server joined\./i.test(text))return{status:'connected',message:`Mit ${server.name} verbunden.`,server};
+  if(/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(text))return{status:'failed',message:`Serverbeitritt fehlgeschlagen. ${text.split(/\r?\n/).filter(line=>/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(line)).at(-1)?.trim()||''}`,server};
   if(/Loading save\.|Profile selected|g_start_in_truck/i.test(text))return{status:'joining',message:'Fahrerprofil geladen – Serververbindung wird hergestellt …',server};
-  return{status:'profile',message:'ETS2/ATS ist gestartet. Fahrerprofil auswählen und „Spielen“ drücken; der Serverbeitritt ist bereits vorgemerkt.',server};
+  return{status:'profile',message:'Spiel gestartet. Fahrerprofil auswählen und „Spielen“ drücken; danach erfolgt der Serverbeitritt automatisch.',server};
 }

@@ -2,7 +2,7 @@ import http from "node:http";
 import { readFileSync, existsSync, writeFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { loadCatalog, compatibleCargo, buildOffer } from "./lib/catalog.mjs";
 import { detectGames } from "./lib/game-detection.mjs";
 import { createSteamLoginUrl, newAuthState } from "./lib/auth.mjs";
@@ -10,10 +10,12 @@ import { TelemetryService } from "./lib/telemetry-service.mjs";
 import { IntegrationState } from "./lib/integration-state.mjs";
 import { SaveJobService } from "./lib/save-job-service.mjs";
 import { parseConnectionStatus, readGameLogStatus } from "./lib/game-log-status.mjs";
+import { steamLaunchArguments } from "./lib/game-launch.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27110),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();
+const RUNTIME_VERSION='0.8.1';
+const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
 const testManifestFile=path.join(ROOT,'active-test-save.json');
@@ -24,6 +26,11 @@ function activeTestSave(){
 }
 function ingameTestStatus(){const manifest=activeTestSave();if(!manifest)return{loaded:null,expectedLoaded:false,adapterErrors:[]};const gameRoot=manifest.game==='ats'?'American Truck Simulator':'Euro Truck Simulator 2';const log=path.join(process.env.USERPROFILE||'', 'Documents',gameRoot,'game.log.txt');return readGameLogStatus(log,path.basename(manifest.target));}
 function gameLog(game){return path.join(process.env.USERPROFILE||'', 'Documents',game==='ats'?'American Truck Simulator':'Euro Truck Simulator 2','game.log.txt');}
+function gameProcessName(game){return game==='ats'?'amtrucks.exe':'eurotrucks2.exe';}
+function isGameRunning(game){try{return new RegExp(gameProcessName(game).replace('.','\\.'),'i').test(execFileSync('tasklist.exe',['/FI',`IMAGENAME eq ${gameProcessName(game)}`,'/FO','CSV','/NH'],{encoding:'utf8',windowsHide:true}));}catch{return false;}}
+function steamExecutable(game){const normalized=path.resolve(game.executable),marker=`${path.sep}steamapps${path.sep}`,index=normalized.toLowerCase().indexOf(marker);if(index<0)return null;const steam=path.join(normalized.slice(0,index),'steam.exe');return existsSync(steam)?steam:null;}
+async function waitForGame(game,timeout=30000){const end=Date.now()+timeout;while(Date.now()<end){if(isGameRunning(game.id))return true;await new Promise(resolve=>setTimeout(resolve,500));}return false;}
+export async function currentServer(selected,auth,fetchImpl=fetch){const response=await fetchImpl(`${config.panelUrl.replace(/\/$/,'')}/api/client/servers`,{headers:{authorization:`Bearer ${auth.accessToken}`}}),data=await response.json();if(!response.ok)throw new Error(data.error||'Serverstatus konnte nicht geladen werden');return data.servers.find(server=>server.id===selected.id)||selected;}
 function connectionStatus(game){
   const launch=launches.get(game);if(!launch)return{status:'idle',message:'Noch kein Serverbeitritt gestartet.'};
   const file=gameLog(game);if(!existsSync(file))return{status:'starting',message:'Spiel wird gestartet …',server:launch.server};
@@ -37,7 +44,8 @@ async function body(req){let value='';for await(const c of req){value+=c;if(valu
 function staticFile(res,name){const file=path.resolve(ROOT,'ui',name);if(!file.startsWith(path.resolve(ROOT,'ui'))||!existsSync(file))return send(res,404,'Nicht gefunden','text/plain');const ext=path.extname(file);send(res,200,readFileSync(file),ext==='.html'?'text/html; charset=utf-8':ext==='.css'?'text/css; charset=utf-8':'text/javascript; charset=utf-8');}
 
 const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http://${req.headers.host}`);try{
-  if(url.pathname==='/api/status'){return send(res,200,{games:detectGames().filter(game=>enabledGames.includes(game.id)),servers:(config.servers||[]).filter(server=>enabledGames.includes(server.game)),telemetry:telemetryStatus(),integration:integration.snapshot(),testSave:activeTestSave(),config:{panelUrl:config.panelUrl,preferredMapProfile:config.preferredMapProfile,dispatcherHotkey:config.dispatcherHotkey,telemetryAutoStart:config.telemetryAutoStart,enabledGames},account:sessions.get('local')?.account||null,offers:offers.slice(-10)});}
+  if(url.pathname==='/api/status'){return send(res,200,{runtimeVersion:RUNTIME_VERSION,games:detectGames().filter(game=>enabledGames.includes(game.id)),servers:(config.servers||[]).filter(server=>enabledGames.includes(server.game)),telemetry:telemetryStatus(),integration:integration.snapshot(),testSave:activeTestSave(),config:{panelUrl:config.panelUrl,preferredMapProfile:config.preferredMapProfile,dispatcherHotkey:config.dispatcherHotkey,telemetryAutoStart:config.telemetryAutoStart,enabledGames},account:sessions.get('local')?.account||null,offers:offers.slice(-10)});}
+  if(url.pathname==='/api/runtime/shutdown'&&req.method==='POST'){send(res,202,{ok:true});setTimeout(()=>server.close(()=>process.exit(0)),50);return;}
   if(url.pathname==='/api/auth/steam'&&req.method==='POST'){const response=await fetch(`${config.panelUrl.replace(/\/$/,'')}/api/client/device/start`,{method:'POST'}),data=await response.json();if(!response.ok)throw new Error(data.error||'Geräteanmeldung konnte nicht gestartet werden');sessions.set('device',{...data,createdAt:Date.now()});return send(res,200,{url:data.verificationUri,verificationUri:data.verificationUri,userCode:data.userCode,expiresIn:data.expiresIn});}
   if(url.pathname==='/api/client/register'&&req.method==='POST'){const input=await body(req),response=await fetch(`${config.panelUrl.replace(/\/$/,'')}/api/client/register`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({displayName:input.displayName})}),data=await response.json();if(!response.ok)throw new Error(data.error||'Fahrerregistrierung konnte nicht gestartet werden');sessions.set('device',{...data,createdAt:Date.now()});return send(res,200,{verificationUri:data.verificationUri,userCode:data.userCode,expiresIn:data.expiresIn});}
   if(url.pathname==='/api/auth/poll'&&req.method==='POST'){const pending=sessions.get('device');if(!pending)return send(res,409,{error:'Keine Geräteanmeldung aktiv'});const response=await fetch(`${config.panelUrl.replace(/\/$/,'')}/api/client/device/token`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({deviceCode:pending.deviceCode})}),data=await response.json();if(response.status===202)return send(res,202,data);if(!response.ok)throw new Error(data.error||'Anmeldung fehlgeschlagen');const auth={accessToken:data.accessToken,account:data.account,expiresAt:Date.now()+data.expiresIn*1000};writeFileSync(authFile,JSON.stringify(auth,null,2),{mode:0o600});sessions.set('local',auth);sessions.delete('device');startTelemetry('ets2');return send(res,200,{ok:true,account:auth.account});}
@@ -74,9 +82,14 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
   if(url.pathname==='/api/game/launch'&&req.method==='POST'){
     const input=await body(req),game=detectGames().find(g=>g.id===input.game);if(!game?.installed)return send(res,409,{error:`${input.game.toUpperCase()} ist nicht gefunden worden`});
     const selected=(config.servers||[]).find(s=>s.id===input.serverId&&s.game===input.game);if(!selected)return send(res,404,{error:'Der ausgewählte VTC-Server wurde nicht gefunden'});
-    const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,args=['-connect',`${selected.host}:${selected.port}`];
-    spawn(game.executable,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();launches.set(input.game,{server:selected,startedAt:Date.now(),logOffset});startTelemetry(input.game);
-    return send(res,202,{ok:true,game:input.game,server:selected,connection:'pending',message:'Serverbeitritt vorgemerkt. Nach Auswahl des Fahrerprofils auf „Spielen“ drücken.'});
+    if(isGameRunning(input.game))return send(res,409,{error:'Das Spiel läuft bereits. Bitte vollständig beenden und danach erneut über den VTC-Launcher starten.'});
+    const auth=sessions.get('local');if(!auth?.accessToken)return send(res,401,{error:'Steam- und VTC-Anmeldung erforderlich'});
+    const live=await currentServer(selected,auth);if(!live.running)return send(res,409,{error:`${live.name} ist momentan offline.`});if(!live.searchId)return send(res,409,{error:'Der Server ist online, hat aber noch keine Session Search ID gemeldet. Bitte kurz warten und erneut versuchen.'});
+    const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,steam=steamExecutable(game);if(!steam)return send(res,409,{error:'Steam.exe wurde zur Spielinstallation nicht gefunden.'});
+    const args=steamLaunchArguments(game,live);
+    spawn(steam,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();if(!await waitForGame(game))return send(res,504,{error:'Steam hat das Spiel innerhalb von 30 Sekunden nicht gestartet. Bitte Steam öffnen und den Start erneut versuchen.'});
+    launches.set(input.game,{server:live,startedAt:Date.now(),logOffset,searchId:live.searchId});startTelemetry(input.game);
+    return send(res,202,{ok:true,game:input.game,server:live,connection:'pending',message:'Spiel läuft. Fahrerprofil auswählen und „Spielen“ drücken – der VTC-Server wird automatisch betreten.'});
   }
   if(url.pathname==='/'||url.pathname==='/index.html')return staticFile(res,'index.html');if(url.pathname==='/ingame.html')return staticFile(res,'ingame.html');if(url.pathname==='/app.js')return staticFile(res,'app.js');if(url.pathname==='/style.css')return staticFile(res,'style.css');return send(res,404,{error:'Nicht gefunden'});
 }catch(e){return send(res,400,{error:e.message});}});

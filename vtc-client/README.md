@@ -20,7 +20,7 @@ Node.js 22 oder neuer installieren und `start-client.cmd` ausführen. Alternativ
 node launcher.mjs
 ```
 
-Danach `http://127.0.0.1:27110` öffnen.
+Danach `http://127.0.0.1:27111` öffnen.
 
 `config.example.json` nach `config.json` kopieren, um Einstellungen lokal zu ändern. Geheimnisse oder Steam-Passwörter dürfen dort nicht gespeichert werden.
 

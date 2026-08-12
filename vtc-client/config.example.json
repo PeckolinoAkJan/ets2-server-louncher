@@ -5,7 +5,7 @@
   "dispatcherHotkey": "Tab",
   "telemetryAutoStart": true,
   "telemetryToken": "",
-  "localPort": 27110,
+  "localPort": 27111,
   "enabledGames": ["ets2", "ats"],
   "servers": [
     {"id":"vtc-ets2-main","game":"ets2","name":"VTC Truck Hub ETS2","host":"159.195.60.60","port":27015},

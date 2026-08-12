@@ -83,6 +83,21 @@ public partial class MainWindow : Window
         var game = SelectedGame();
         if (state.Games.FirstOrDefault(g => g.Id == game)?.Installed != true) { MessageBox.Show("Dieses Spiel wurde nicht gefunden."); return; }
         if (state.Account is null && !await Login()) return;
+        if (game == "ets2" && state.TestSave is null)
+        {
+            var setup = MessageBox.Show("Der Ingame-Dispatcher braucht einmalig einen eigenen VTC-Spielstand. Dabei wird nur eine Kopie deines neuesten Autosaves angelegt; bestehende Spielstände bleiben unverändert.\n\nJetzt automatisch einrichten?", "Dispatcher einrichten", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
+            if (setup == MessageBoxResult.Cancel) return;
+            if (setup == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var result = await api.SetupDispatcher();
+                    StatusText.Text = $"Dispatcher-Spielstand in Slot {result.Slot} eingerichtet";
+                    await Refresh();
+                }
+                catch (Exception ex) { MessageBox.Show(ex.Message, "Dispatcher-Einrichtung fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error); return; }
+            }
+        }
         var servers = state.Servers.Where(s => s.Game == game).ToArray();
         if (servers.Length == 0) { MessageBox.Show("Kein passender VTC-Server eingerichtet."); return; }
         var server = servers.Length == 1 ? servers[0] : ChooseServer(servers);
@@ -111,7 +126,7 @@ public partial class MainWindow : Window
             var connection = await api.Connection(launchedGame);
             StatusText.Text = connection.Message;
             ConnectionText.Text = connection.Message;
-            if (connection.Status == "connected") connectionTimer.Stop();
+            if (connection.Status is "connected" or "failed") connectionTimer.Stop();
         }
         catch { }
     }

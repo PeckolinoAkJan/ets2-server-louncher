@@ -167,6 +167,10 @@ function packageState(game) {
   return ["server_packages.sii", "server_packages.dat"].map(name => { const file = path.join(game.home, name); return { name, present: existsSync(file), size: existsSync(file) ? statSync(file).size : 0 }; });
 }
 function serverLog(game) { return path.join(game.home, "server.log.txt"); }
+function sessionSearchId(game) {
+  const log = tail(serverLog(game), 800);
+  return log.match(/search id[^\d]*(\d+(?:\/\d+)?)/i)?.[1] || null;
+}
 function logPlayers(game) {
   const text = tail(serverLog(game), 2000), found = new Map();
   for (const line of text.split(/\r?\n/)) {
@@ -206,6 +210,10 @@ async function api(req, res, url) {
   }
   if(url.pathname==="/api/client/me"&&req.method==="GET"){
     const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});return send(res,200,{account:{steamId:account.steamId,vtcAccountId:account.vtcAccountId,displayName:account.displayName}});
+  }
+  if(url.pathname==="/api/client/servers"&&req.method==="GET"){
+    const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});
+    return send(res,200,{servers:Object.values(games).map(target=>({id:`vtc-${target.id}-main`,game:target.id,name:`VTC Truck Hub ${target.short}`,host:"159.195.60.60",port:target.ports[0],searchId:sessionSearchId(target),running:running(target).running}))});
   }
   const clientTelemetryMatch=url.pathname.match(/^\/api\/client\/telemetry\/(ets2|ats)$/);if(clientTelemetryMatch&&req.method==="POST"){
     const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});
@@ -250,7 +258,7 @@ async function api(req, res, url) {
   if (url.pathname === "/api/overview" && req.method === "GET") {
     const s = requireAuth(req, res); if (!s) return;
     const config = getConfig(), state = running(), log = tail(SERVER_LOG, 150);
-    const searchId = log.match(/search id[^\d]*(\d+)/i)?.[1] || "–";
+    const searchId = sessionSearchId(game) || "–";
     return send(res, 200, { ...state, installed: existsSync(path.join(ETS2_SERVER, "bin/linux_x64/eurotrucks2_server")), installing: Boolean(installProcess), config: publicConfig(config), packages: packageState(), metrics: systemMetrics(), searchId, players: [] });
   }
   if (url.pathname === "/api/config" && req.method === "GET") { const s = requireAuth(req, res); if (!s) return; return send(res, 200, publicConfig()); }
@@ -301,7 +309,7 @@ async function apiV2(req, res, url) {
   if (["/api/bootstrap", "/api/login", "/api/logout", "/api/me", "/api/audit"].includes(url.pathname)||url.pathname.startsWith("/api/client/")||url.pathname.startsWith("/api/admin/drivers")) return api(req, res, url);
   if (url.pathname === "/api/overview" && req.method === "GET") {
     const s = requireAuth(req, res); if (!s) return; const config = getConfig(game), state = running(game), log = tail(serverLog(game), 300), players = livePlayers(game);
-    const searchId = log.match(/search id[^\d]*(\d+)/i)?.[1] || "–";
+    const searchId = sessionSearchId(game) || "–";
     return send(res, 200, { ...state, game: { id:game.id, label:game.label, short:game.short, appId:game.appId, ports:game.ports }, games:Object.values(games).map(g=>({id:g.id,label:g.label,short:g.short})), installed:existsSync(path.join(game.server, `bin/linux_x64/${game.binary}`)), installing:installs.has(game.id), config:publicConfig(config), packages:packageState(game), metrics:systemMetrics(), searchId, players });
   }
   if (url.pathname === "/api/config" && req.method === "GET") { const s=requireAuth(req,res); if(!s)return; return send(res,200,publicConfig(getConfig(game))); }
