@@ -12,6 +12,8 @@ export function parseGameLogStatus(text,expectedSlot){
 
 export function readGameLogStatus(file,expectedSlot){if(!existsSync(file))return{loaded:null,expectedSlot:String(expectedSlot),expectedLoaded:false,adapterErrors:[]};return parseGameLogStatus(readFileSync(file,'utf8'),expectedSlot);}
 
+export function currentLaunchLog(text,offset){const start=Number(offset)||0;return text.slice(start<=text.length?start:0);}
+
 export function parseConnectionStatus(text,server){
   if(/\[MP\].*connected,\s*client_id\s*=/i.test(text)||/\[MP\]\s+Game server joined\./i.test(text))return{status:'connected',message:`Mit ${server.name} verbunden.`,server};
   if(/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(text))return{status:'failed',message:`Serverbeitritt fehlgeschlagen. ${text.split(/\r?\n/).filter(line=>/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(line)).at(-1)?.trim()||''}`,server};

@@ -4,11 +4,11 @@ Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite un
 
 ## Serverbeitritt
 
-„Server beitreten“ startet ETS2 beziehungsweise ATS über `steam.exe -silent -applaunch` und übergibt den 64-Bit-Steam-Lobbyanteil der unmittelbar vorher vom Server geladenen SCS-Session-ID mit `+connect_lobby`. Das SCS-Suchsuffix (zum Beispiel `/101`) wird nicht an Steam übergeben. Dadurch erscheint kein zusätzlicher Steam-Dialog zur Bestätigung der Startparameter. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschließenden Klick auf „Spielen“ tritt es automatisch dem VTC-Server bei. Der Launcher meldet „verbunden“ ausschließlich nach `Game server joined` im neuen Abschnitt von `game.log.txt`.
+�?zServer beitreten�?o startet ETS2 beziehungsweise ATS über `steam.exe -silent -applaunch` und übergibt den 64-Bit-Steam-Lobbyanteil der unmittelbar vorher vom Server geladenen SCS-Session-ID mit `+connect_lobby`. Das SCS-Suchsuffix (zum Beispiel `/101`) wird nicht an Steam übergeben. Dadurch erscheint kein zusätzlicher Steam-Dialog zur Bestätigung der Startparameter. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschlie�Yenden Klick auf �?zSpielen�?o tritt es automatisch dem VTC-Server bei. Der Launcher meldet �?zverbunden�?o ausschlie�Ylich nach `Game server joined` im neuen Abschnitt von `game.log.txt`.
 
 ## Release
 
-Ein Tag wie `launcher-v0.9.5` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
+Ein Tag wie `launcher-v0.9.6` startet GitHub Actions. Der Workflow testet Client und Server, baut eine selbstständige x64-EXE, bettet die lokale Node-Laufzeit ein, erzeugt den Installer und veröffentlicht SHA-256-Prüfsummen im GitHub Release.
 
 ## Updates
 

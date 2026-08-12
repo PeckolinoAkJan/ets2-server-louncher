@@ -9,13 +9,13 @@ import { createSteamLoginUrl, newAuthState } from "./lib/auth.mjs";
 import { TelemetryService } from "./lib/telemetry-service.mjs";
 import { IntegrationState } from "./lib/integration-state.mjs";
 import { SaveJobService } from "./lib/save-job-service.mjs";
-import { parseConnectionStatus, readGameLogStatus } from "./lib/game-log-status.mjs";
+import { currentLaunchLog, parseConnectionStatus, readGameLogStatus } from "./lib/game-log-status.mjs";
 import { steamLaunchArguments } from "./lib/game-launch.mjs";
 import { MultiplayerClient } from "./lib/multiplayer-client.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const RUNTIME_VERSION='0.9.5';
+const RUNTIME_VERSION='0.9.6';
 const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();let multiplayerClient=null,recoveryPromise=null;
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
@@ -37,17 +37,20 @@ export async function currentServer(selected,auth,fetchImpl=fetch){const respons
 function connectionStatus(game){
   if(multiplayerClient?.game===game&&multiplayerClient.session){
     const snapshot=multiplayerClient.snapshot(),server=launches.get(game)?.server;
-    if(!integration.pluginReady(game))return{status:'waiting_plugin',message:'VTC-Sitzung reserviert. Warte auf das native Spielmodul …',server,multiplayer:snapshot};
-    if(!snapshot.lastSyncAt||Date.now()-snapshot.lastSyncAt>5000)return{status:'synchronizing',message:'Spielmodul erkannt. Fahrer-Synchronisierung wird aufgebaut …',server,multiplayer:snapshot};
-    const launch=launches.get(game),file=gameLog(game);if(!launch||!existsSync(file))return{status:'joining_convoy',message:'VTC-Kanal bereit. Warte auf den Convoy-Beitritt …',server,multiplayer:snapshot};
-    const convoy=parseConnectionStatus(readFileSync(file,'utf8').slice(launch.logOffset||0),launch.server);
+    if(!integration.pluginReady(game))return{status:'waiting_plugin',message:'VTC-Sitzung reserviert. Warte auf das native Spielmodul �?�',server,multiplayer:snapshot};
+    if(!snapshot.lastSyncAt||Date.now()-snapshot.lastSyncAt>5000)return{status:'synchronizing',message:'Spielmodul erkannt. Fahrer-Synchronisierung wird aufgebaut �?�',server,multiplayer:snapshot};
+    const launch=launches.get(game),file=gameLog(game);if(!launch||!existsSync(file))return{status:'joining_convoy',message:'VTC-Kanal bereit. Warte auf den Convoy-Beitritt �?�',server,multiplayer:snapshot};
+    const logText=readFileSync(file,'utf8'),offset=Number(launch.logOffset)||0;
+    // ETS2 recreates game.log.txt at startup. A byte offset captured from the
+    // previous run may be beyond the new log and must not hide live MP lines.
+    const convoy=parseConnectionStatus(currentLaunchLog(logText,offset),launch.server);
     if(convoy.status==='failed')return{...convoy,multiplayer:snapshot};
-    if(convoy.status!=='connected')return{status:'joining_convoy',message:'VTC-Kanal bereit. ETS2 verbindet jetzt mit dem Convoy-Server …',server,multiplayer:snapshot};
+    if(convoy.status!=='connected')return{status:'joining_convoy',message:'VTC-Kanal bereit. ETS2 verbindet jetzt mit dem Convoy-Server �?�',server,multiplayer:snapshot};
     return{status:'connected',message:`VTC- und Spielserver verbunden · ${snapshot.players.length+1} VTC-Fahrer synchronisiert`,server,multiplayer:snapshot};
   }
   const launch=launches.get(game);if(!launch)return{status:'idle',message:'Noch kein Serverbeitritt gestartet.'};
-  const file=gameLog(game);if(!existsSync(file))return{status:'starting',message:'Spiel wird gestartet …',server:launch.server};
-  const text=readFileSync(file,'utf8').slice(launch.logOffset||0);return parseConnectionStatus(text,launch.server);
+  const file=gameLog(game);if(!existsSync(file))return{status:'starting',message:'Spiel wird gestartet �?�',server:launch.server};
+  const logText=readFileSync(file,'utf8'),offset=Number(launch.logOffset)||0;const text=currentLaunchLog(logText,offset);return parseConnectionStatus(text,launch.server);
 }
 let telemetryService=null;
 function telemetryStatus(){return{configured:Boolean(sessions.get('local')?.accessToken),running:Boolean(telemetryService?.timer),lastError:telemetryService?.lastError||null};}
@@ -65,7 +68,7 @@ async function recoverMultiplayer(game){
   return recoveryPromise;
 }
 function send(res,status,data,type='application/json; charset=utf-8'){const body=type.startsWith('application/json')?JSON.stringify(data):data;res.writeHead(status,{'content-type':type,'cache-control':'no-store','content-length':Buffer.byteLength(body)});res.end(body);}
-async function body(req){let value='';for await(const c of req){value+=c;if(value.length>1e6)throw new Error('Anfrage zu groß');}return value?JSON.parse(value):{};}
+async function body(req){let value='';for await(const c of req){value+=c;if(value.length>1e6)throw new Error('Anfrage zu gro�Y');}return value?JSON.parse(value):{};}
 function staticFile(res,name){const file=path.resolve(ROOT,'ui',name);if(!file.startsWith(path.resolve(ROOT,'ui'))||!existsSync(file))return send(res,404,'Nicht gefunden','text/plain');const ext=path.extname(file);send(res,200,readFileSync(file),ext==='.html'?'text/html; charset=utf-8':ext==='.css'?'text/css; charset=utf-8':'text/javascript; charset=utf-8');}
 
 const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http://${req.headers.host}`);try{
