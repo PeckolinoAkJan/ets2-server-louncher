@@ -14,7 +14,7 @@ import { steamLaunchArguments } from "./lib/game-launch.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const RUNTIME_VERSION='0.8.2';
+const RUNTIME_VERSION='0.8.3';
 const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
@@ -86,10 +86,11 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
     const auth=sessions.get('local');if(!auth?.accessToken)return send(res,401,{error:'Steam- und VTC-Anmeldung erforderlich'});
     const live=await currentServer(selected,auth);if(!live.running)return send(res,409,{error:`${live.name} ist momentan offline.`});if(!live.searchId)return send(res,409,{error:'Der Server ist online, hat aber noch keine Session Search ID gemeldet. Bitte kurz warten und erneut versuchen.'});
     const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,steam=steamExecutable(game);if(!steam)return send(res,409,{error:'Steam.exe wurde zur Spielinstallation nicht gefunden.'});
-    const args=steamLaunchArguments(game,live);
+    const args=steamLaunchArguments(game,live),searchId=String(live.searchId).split('/')[0];
+    try{execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Set-Clipboard -Value '${searchId}'`],{windowsHide:true,stdio:'ignore'});}catch{}
     spawn(steam,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();if(!await waitForGame(game))return send(res,504,{error:'Steam hat das Spiel innerhalb von 30 Sekunden nicht gestartet. Bitte Steam öffnen und den Start erneut versuchen.'});
     launches.set(input.game,{server:live,startedAt:Date.now(),logOffset,searchId:live.searchId});startTelemetry(input.game);
-    return send(res,202,{ok:true,game:input.game,server:live,connection:'pending',message:'Spiel läuft. Fahrerprofil auswählen und „Spielen“ drücken – der VTC-Server wird automatisch betreten.'});
+    return send(res,202,{ok:true,game:input.game,server:live,connection:'manual-search',message:`Spiel läuft. Die Server-Such-ID ${searchId} wurde kopiert. Im Hauptmenü „Convoys“ → „Convoy-Lobby“ öffnen, ID einfügen und „Convoy beitreten“ drücken.`});
   }
   if(url.pathname==='/'||url.pathname==='/index.html')return staticFile(res,'index.html');if(url.pathname==='/ingame.html')return staticFile(res,'ingame.html');if(url.pathname==='/app.js')return staticFile(res,'app.js');if(url.pathname==='/style.css')return staticFile(res,'style.css');return send(res,404,{error:'Nicht gefunden'});
 }catch(e){return send(res,400,{error:e.message});}});
