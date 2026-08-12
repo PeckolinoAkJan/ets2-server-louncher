@@ -15,7 +15,7 @@ import { MultiplayerClient } from "./lib/multiplayer-client.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const RUNTIME_VERSION='0.8.3';
+const RUNTIME_VERSION='0.9.0';
 const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();let multiplayerClient=null;
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
@@ -37,7 +37,11 @@ function connectionStatus(game){
     const snapshot=multiplayerClient.snapshot(),server=launches.get(game)?.server;
     if(!integration.pluginReady(game))return{status:'waiting_plugin',message:'VTC-Sitzung reserviert. Warte auf das native Spielmodul …',server,multiplayer:snapshot};
     if(!snapshot.lastSyncAt||Date.now()-snapshot.lastSyncAt>5000)return{status:'synchronizing',message:'Spielmodul erkannt. Fahrer-Synchronisierung wird aufgebaut …',server,multiplayer:snapshot};
-    return{status:'connected',message:`VTC-Server verbunden · ${snapshot.players.length+1} Fahrer synchronisiert`,server,multiplayer:snapshot};
+    const launch=launches.get(game),file=gameLog(game);if(!launch||!existsSync(file))return{status:'joining_convoy',message:'VTC-Kanal bereit. Warte auf den Convoy-Beitritt …',server,multiplayer:snapshot};
+    const convoy=parseConnectionStatus(readFileSync(file,'utf8').slice(launch.logOffset||0),launch.server);
+    if(convoy.status==='failed')return{...convoy,multiplayer:snapshot};
+    if(convoy.status!=='connected')return{status:'joining_convoy',message:'VTC-Kanal bereit. ETS2 verbindet jetzt mit dem Convoy-Server …',server,multiplayer:snapshot};
+    return{status:'connected',message:`VTC- und Spielserver verbunden · ${snapshot.players.length+1} VTC-Fahrer synchronisiert`,server,multiplayer:snapshot};
   }
   const launch=launches.get(game);if(!launch)return{status:'idle',message:'Noch kein Serverbeitritt gestartet.'};
   const file=gameLog(game);if(!existsSync(file))return{status:'starting',message:'Spiel wird gestartet …',server:launch.server};
@@ -87,7 +91,7 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
   if(url.pathname==='/api/integration/result'&&req.method==='POST'){return send(res,200,integration.result(await body(req)));}
   if(url.pathname==='/api/integration/complete'&&req.method==='POST'){return send(res,200,integration.complete(await body(req)));}
   if(url.pathname==='/api/game/connection-status'&&req.method==='GET')return send(res,200,connectionStatus(url.searchParams.get('game')||'ets2'));
-  if(url.pathname==='/api/multiplayer/join'&&req.method==='POST'){const input=await body(req),auth=sessions.get('local');if(!auth?.accessToken)return send(res,401,{error:'Steam- und VTC-Anmeldung erforderlich'});multiplayerClient=new MultiplayerClient({panelUrl:config.panelUrl,accessToken:auth.accessToken,game:input.game,serverId:input.serverId,clientVersion:RUNTIME_VERSION,pluginVersion:integration.plugin?.pluginVersion||'not-connected'});return send(res,201,await multiplayerClient.join(input.mapProfile||config.preferredMapProfile||'standard'));}
+  if(url.pathname==='/api/multiplayer/join'&&req.method==='POST'){const input=await body(req),auth=sessions.get('local');if(!auth?.accessToken)return send(res,401,{error:'Steam- und VTC-Anmeldung erforderlich'});multiplayerClient=new MultiplayerClient({panelUrl:config.panelUrl,accessToken:auth.accessToken,game:input.game,serverId:input.serverId,clientVersion:RUNTIME_VERSION,pluginVersion:integration.plugin?.pluginVersion||'not-connected'});try{return send(res,201,await multiplayerClient.join(input.mapProfile||config.preferredMapProfile||'standard'));}catch(error){if(error.status!==404)throw error;multiplayerClient=null;return send(res,200,{session:{mode:'scs-convoy',supplementalChannel:false},tickRate:0,timeoutMs:0});}}
   if(url.pathname==='/api/multiplayer/heartbeat'&&req.method==='POST'){if(!multiplayerClient)return send(res,409,{error:'Multiplayer-Sitzung fehlt'});return send(res,200,await multiplayerClient.heartbeat((await body(req)).state||{}));}
   if(url.pathname==='/api/multiplayer/players')return send(res,200,multiplayerClient?.snapshot()||{connected:false,players:[]});
   if(url.pathname==='/api/multiplayer/leave'&&req.method==='POST'){if(!multiplayerClient)return send(res,200,{ok:false});const result=await multiplayerClient.leave();multiplayerClient=null;return send(res,200,result);}
@@ -96,12 +100,12 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
     const selected=(config.servers||[]).find(s=>s.id===input.serverId&&s.game===input.game);if(!selected)return send(res,404,{error:'Der ausgewählte VTC-Server wurde nicht gefunden'});
     if(isGameRunning(input.game))return send(res,409,{error:'Das Spiel läuft bereits. Bitte vollständig beenden und danach erneut über den VTC-Launcher starten.'});
     const auth=sessions.get('local');if(!auth?.accessToken)return send(res,401,{error:'Steam- und VTC-Anmeldung erforderlich'});
-    const live=await currentServer(selected,auth);if(!live.running)return send(res,409,{error:`${live.name} ist momentan offline.`});
+    const live=await currentServer(selected,auth);if(!live.running)return send(res,409,{error:`${live.name} ist momentan offline.`});if(!live.searchId)return send(res,409,{error:'Der Server ist online, hat aber noch keine aktuelle Session Search ID gemeldet.'});
     const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,steam=steamExecutable(game);if(!steam)return send(res,409,{error:'Steam.exe wurde zur Spielinstallation nicht gefunden.'});
     const args=steamLaunchArguments(game,live);
     spawn(steam,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();if(!await waitForGame(game))return send(res,504,{error:'Steam hat das Spiel innerhalb von 30 Sekunden nicht gestartet. Bitte Steam öffnen und den Start erneut versuchen.'});
     launches.set(input.game,{server:live,startedAt:Date.now(),logOffset,searchId:live.searchId});startTelemetry(input.game);
-    return send(res,202,{ok:true,game:input.game,server:live,connection:'vtc-native',message:'Spiel und VTC-Multiplayer-Sitzung wurden gestartet. Das native Spielmodul stellt die Fahrer-Synchronisation her.'});
+    return send(res,202,{ok:true,game:input.game,server:live,connection:'hybrid-pending',message:'Spiel gestartet. Nach der Profilauswahl verbindet ETS2 automatisch mit dem VTC-Convoy; der Launcher bestätigt erst den echten Beitritt.'});
   }
   if(url.pathname==='/'||url.pathname==='/index.html')return staticFile(res,'index.html');if(url.pathname==='/ingame.html')return staticFile(res,'ingame.html');if(url.pathname==='/app.js')return staticFile(res,'app.js');if(url.pathname==='/style.css')return staticFile(res,'style.css');return send(res,404,{error:'Nicht gefunden'});
 }catch(e){return send(res,400,{error:e.message});}});

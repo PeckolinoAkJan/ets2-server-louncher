@@ -4,7 +4,7 @@ Nativer Windows-Launcher für ETS2 und ATS. Er zeigt keine localhost-Webseite un
 
 ## Serverbeitritt
 
-„Server beitreten“ startet ETS2 beziehungsweise ATS über `steam.exe -silent -applaunch` und übergibt die aktuelle SCS-Session-ID mit `+connect_lobby`. Dadurch erscheint kein zusätzlicher Steam-Dialog zur Bestätigung der Startparameter. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschließenden Klick auf „Spielen“ tritt es automatisch dem VTC-Server bei. Der Launcher meldet „gestartet“ erst nach Erkennung des echten Spielprozesses und überwacht anschließend `game.log.txt`.
+„Server beitreten“ startet ETS2 beziehungsweise ATS über `steam.exe -silent -applaunch` und übergibt die vollständige, unmittelbar vorher vom Server geladene SCS-Session-ID mit `+connect_lobby`. Dadurch erscheint kein zusätzlicher Steam-Dialog zur Bestätigung der Startparameter. Das Spiel lädt zunächst das vom Fahrer gewählte Profil. Beim anschließenden Klick auf „Spielen“ tritt es automatisch dem VTC-Server bei. Der Launcher meldet „verbunden“ ausschließlich nach `Game server joined` im neuen Abschnitt von `game.log.txt`.
 
 ## Release
 
