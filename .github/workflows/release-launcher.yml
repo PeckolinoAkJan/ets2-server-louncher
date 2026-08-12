@@ -18,6 +18,15 @@ jobs:
       - name: Publish native launcher
         shell: pwsh
         run: dotnet publish launcher-src/VtcTruckHub.Launcher/VtcTruckHub.Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o launcher-src/publish
+      - name: Build official SCS telemetry bridge
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://download.eurotrucksimulator2.com/scs_sdk_1_14.zip' -OutFile scs_sdk.zip
+          Expand-Archive scs_sdk.zip -DestinationPath scs_sdk
+          cmake -S vtc-client/native-plugin -B vtc-client/native-plugin/build -A x64 "-DSCS_SDK_INCLUDE=$pwd/scs_sdk/include"
+          cmake --build vtc-client/native-plugin/build --config Release
+          New-Item -ItemType Directory -Force launcher-src/publish/native-plugin | Out-Null
+          Copy-Item vtc-client/native-plugin/build/Release/vtc_truck_hub.dll launcher-src/publish/native-plugin/
       - name: Bundle local service without a visible console
         shell: pwsh
         run: |

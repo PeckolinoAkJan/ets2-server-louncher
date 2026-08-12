@@ -6,6 +6,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { MultiplayerHub } from "./lib/multiplayer-hub.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -23,6 +24,7 @@ const telemetry = new Map([["ets2", new Map()], ["ats", new Map()]]);
 const clientDevices = new Map();
 const steamStates = new Map();
 const clientTokens = new Map();
+const multiplayer = new MultiplayerHub();
 const PUBLIC_URL = String(process.env.PUBLIC_URL || "https://ets-server.vtc-truck-hub.de").replace(/\/$/, "");
 const STEAM_OPENID = "https://steamcommunity.com/openid/login";
 
@@ -213,8 +215,12 @@ async function api(req, res, url) {
   }
   if(url.pathname==="/api/client/servers"&&req.method==="GET"){
     const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});
-    return send(res,200,{servers:Object.values(games).map(target=>({id:`vtc-${target.id}-main`,game:target.id,name:`VTC Truck Hub ${target.short}`,host:"159.195.60.60",port:target.ports[0],searchId:sessionSearchId(target),running:running(target).running}))});
+    return send(res,200,{servers:Object.values(games).map(target=>({id:`vtc-${target.id}-main`,game:target.id,name:`VTC Truck Hub ${target.short}`,host:"159.195.60.60",port:target.ports[0],searchId:sessionSearchId(target),running:running(target).running,mode:"vtc-native",players:multiplayer.snapshot(target.id,`vtc-${target.id}-main`).length,capacity:128}))});
   }
+  if(url.pathname==="/api/client/multiplayer/join"&&req.method==="POST"){const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});const input=await body(req),target=games[input.game];if(!target)return send(res,400,{error:"Ungültiges Spiel"});if(input.serverId!==`vtc-${target.id}-main`)return send(res,404,{error:"VTC-Server nicht gefunden"});if(!running(target).running)return send(res,409,{error:`${target.short}-Server ist offline`});return send(res,201,{session:multiplayer.join(account,input),tickRate:10,timeoutMs:multiplayer.timeoutMs});}
+  if(url.pathname==="/api/client/multiplayer/heartbeat"&&req.method==="POST"){const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});return send(res,200,multiplayer.heartbeat(account,await body(req)));}
+  if(url.pathname==="/api/client/multiplayer/leave"&&req.method==="POST"){const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});return send(res,200,multiplayer.leave(account,await body(req)));}
+  if(url.pathname==="/api/client/multiplayer/stats"&&req.method==="GET"){const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});return send(res,200,multiplayer.stats());}
   const clientTelemetryMatch=url.pathname.match(/^\/api\/client\/telemetry\/(ets2|ats)$/);if(clientTelemetryMatch&&req.method==="POST"){
     const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});
     const target=games[clientTelemetryMatch[1]],input=await body(req),num=v=>Number.isFinite(Number(v))?Number(v):null,id=account.steamId;

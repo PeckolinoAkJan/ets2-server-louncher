@@ -14,3 +14,10 @@ Eine Version darf nur in `compatibility.json` eingetragen werden, wenn alle Punk
 10. `uninstall-plugin.ps1` entfernt das Plugin beziehungsweise stellt die vorige Version wieder her.
 
 Danach SHA256 des getesteten Builds ermitteln und `certify-version.ps1` mit allen vier Bestätigungsschaltern ausführen.
+# Verbindlicher Multiplayer-Nachweis
+
+- Der Launcher darf nach dem Reservieren nur `Warte auf das native Spielmodul` anzeigen.
+- Im ETS2/ATS-`game.log.txt` muss `vtc_truck_hub` erfolgreich geladen sein.
+- Erst nach einem erfolgreichen authentifizierten Heartbeat darf `VTC-Server verbunden` erscheinen.
+- Wird die DLL entfernt oder der lokale Dienst beendet, darf kein verbundener Zustand angezeigt werden.
+- Zwei Testrechner müssen im selben Spiel und Server gegenseitig in `remote_players` sehen.

@@ -5,7 +5,7 @@
   "required":["version","type","game"],
   "properties":{
     "version":{"const":1},
-    "type":{"enum":["hello","heartbeat","telemetry","command_result","job_completed"]},
+    "type":{"enum":["hello","heartbeat","telemetry","remote_players","command_result","job_completed"]},
     "game":{"enum":["ets2","ats"]},
     "gameVersion":{"type":"string"},
     "pluginVersion":{"type":"string"},

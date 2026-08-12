@@ -10,6 +10,7 @@ public partial class MainWindow : Window
     readonly ClientApi api = new();
     readonly RuntimeService runtime = new();
     readonly UpdateService updates = new();
+    readonly PluginService plugins = new();
     readonly DispatcherTimer connectionTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     ClientStatus? state;
     string? launchedGame;
@@ -106,6 +107,9 @@ public partial class MainWindow : Window
         PlayButton.IsEnabled = false;
         try
         {
+            plugins.EnsureInstalled(state.Games.First(g => g.Id == game));
+            await api.JoinMultiplayer(game, server.Id);
+            StatusText.Text = "VTC-Sitzung reserviert – Spiel wird gestartet …";
             var launch = await api.Launch(game, server.Id);
             launchedGame = game;
             StatusText.Text = launch.Message;
@@ -126,7 +130,7 @@ public partial class MainWindow : Window
             var connection = await api.Connection(launchedGame);
             StatusText.Text = connection.Message;
             ConnectionText.Text = connection.Message;
-            if (connection.Status is "connected" or "failed") connectionTimer.Stop();
+            if (connection.Status == "failed") connectionTimer.Stop();
         }
         catch { }
     }

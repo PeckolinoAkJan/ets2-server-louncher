@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 namespace VtcTruckHub.Launcher;
 public sealed record GameInfo(string Id,string Exe,string SteamAppId,string Documents,bool Installed,string? Executable,string ProfileDir);
-public sealed record ServerInfo(string Id,string Game,string Name,string Host,int Port);
+public sealed record ServerInfo(string Id,string Game,string Name,string Host,int Port,string? SearchId=null,bool Running=false,string? Mode=null,int Players=0,int Capacity=128);
 public sealed record AccountInfo(string SteamId,string VtcAccountId,string DisplayName,string? Role);
 public sealed record ClientConfig(string PanelUrl,string PreferredMapProfile,string DispatcherHotkey,bool TelemetryAutoStart,string[] EnabledGames);
 public sealed record ClientStatus(string? RuntimeVersion,GameInfo[] Games,ServerInfo[] Servers,AccountInfo? Account,ClientConfig Config,JsonElement? TestSave);
@@ -11,3 +11,4 @@ public sealed record DeviceStart(string DeviceCode,string UserCode,string Verifi
 public sealed record TokenResult(string? Status,string? AccessToken,AccountInfo? Account,string? Error);
 public sealed record LaunchResult(bool Ok,string Game,ServerInfo Server,string Connection,string Message);
 public sealed record ConnectionResult(string Status,string Message,ServerInfo? Server);
+public sealed record MultiplayerJoinResult(JsonElement Session,int TickRate,int TimeoutMs);

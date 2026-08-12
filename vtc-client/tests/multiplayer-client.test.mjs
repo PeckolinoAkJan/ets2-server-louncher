@@ -1,0 +1,5 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MultiplayerClient} from '../lib/multiplayer-client.mjs';
+
+test('öffnet, synchronisiert und beendet eine authentifizierte Spielsitzung',async()=>{const calls=[],fetchImpl=async(url,options)=>{calls.push({url,options,body:JSON.parse(options.body)});return{ok:true,json:async()=>url.endsWith('/join')?{session:{sessionId:'s1'},tickRate:10}:url.endsWith('/heartbeat')?{self:{sessionId:'s1'},players:[{name:'RoadKing'}]}:{ok:true}};};const client=new MultiplayerClient({panelUrl:'https://panel/',accessToken:'secret',game:'ets2',serverId:'eu',clientVersion:'1.0',fetchImpl});await client.join();await client.heartbeat({x:1});await client.heartbeat({x:2});assert.equal(calls[1].body.sequence,1);assert.equal(calls[2].body.sequence,2);assert.equal(client.snapshot().players[0].name,'RoadKing');assert.match(calls[0].options.headers.authorization,/Bearer secret/);await client.leave();assert.equal(client.snapshot().connected,false);});

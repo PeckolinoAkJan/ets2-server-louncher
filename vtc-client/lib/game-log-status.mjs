@@ -15,6 +15,6 @@ export function readGameLogStatus(file,expectedSlot){if(!existsSync(file))return
 export function parseConnectionStatus(text,server){
   if(/\[MP\].*connected,\s*client_id\s*=/i.test(text)||/\[MP\]\s+Game server joined\./i.test(text))return{status:'connected',message:`Mit ${server.name} verbunden.`,server};
   if(/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(text))return{status:'failed',message:`Serverbeitritt fehlgeschlagen. ${text.split(/\r?\n/).filter(line=>/\[MP\].*(failed|refused|invalid|disconnected|closure requested)/i.test(line)).at(-1)?.trim()||''}`,server};
-  if(/Loading save\.|Profile selected|g_start_in_truck/i.test(text))return{status:'awaiting-user',message:`Fahrerprofil geladen. Convoy-Lobby öffnen und die kopierte Such-ID ${String(server.searchId||'').split('/')[0]} einfügen.`,server};
-  return{status:'profile',message:`Spiel gestartet. Fahrerprofil auswählen; danach Convoy-Lobby öffnen und die kopierte Such-ID ${String(server.searchId||'').split('/')[0]} einfügen.`,server};
+  if(/Loading save\.|Profile selected|g_start_in_truck/i.test(text))return{status:'profile-loaded',message:'Fahrerprofil geladen. VTC-Multiplayer wartet auf das native Spielmodul.',server};
+  return{status:'profile',message:'Spiel gestartet. Fahrerprofil auswählen; die VTC-Multiplayer-Sitzung läuft bereits.',server};
 }

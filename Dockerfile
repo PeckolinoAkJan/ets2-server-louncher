@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends bash curl ca-ce
 WORKDIR /app
 COPY package.json ./
 COPY server.mjs ./
+COPY lib ./lib
 COPY public ./public
 COPY scripts ./scripts
 RUN chmod +x scripts/*.sh && useradd -m -u 10001 ets2 && mkdir -p /data && chown -R ets2:ets2 /app /data
