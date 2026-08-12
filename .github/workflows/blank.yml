@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '8.0.x' }
       - name: Run JavaScript tests
-        run: node --test tests/*.test.mjs vtc-client/tests/*.test.mjs
+        run: node --test tests/server.test.mjs tests/multiplayer-hub.test.mjs vtc-client/tests/*.test.mjs
       - name: Build launcher
         run: dotnet build launcher-src/VtcTruckHub.Launcher/VtcTruckHub.Launcher.csproj -c Release
       - name: Compile native SCS bridge
