@@ -4,9 +4,10 @@ using System.Net.Http;
 
 namespace VtcTruckHub.Launcher;
 
-public sealed class RuntimeService
+public sealed class RuntimeService : IDisposable
 {
     private readonly string root = AppContext.BaseDirectory;
+    private Process? serviceProcess;
 
     public async Task EnsureStartedAsync()
     {
@@ -16,7 +17,7 @@ public sealed class RuntimeService
         if (!File.Exists(node) || !File.Exists(launcher))
             throw new InvalidOperationException("Die lokale Launcher-Laufzeit ist unvollständig. Bitte den Installer erneut ausführen.");
 
-        Process.Start(new ProcessStartInfo(node, $"\"{launcher}\"")
+        serviceProcess = Process.Start(new ProcessStartInfo(node, $"\"{launcher}\"")
         {
             WorkingDirectory = root,
             UseShellExecute = false,
@@ -30,6 +31,18 @@ public sealed class RuntimeService
             if (await IsReadyAsync()) return;
         }
         throw new InvalidOperationException("Der lokale VTC-Dienst konnte nicht gestartet werden.");
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (serviceProcess is { HasExited: false }) serviceProcess.Kill(entireProcessTree: true);
+            serviceProcess?.Dispose();
+        }
+        catch { }
+        serviceProcess = null;
+        GC.SuppressFinalize(this);
     }
 
     private async Task<bool> IsReadyAsync()

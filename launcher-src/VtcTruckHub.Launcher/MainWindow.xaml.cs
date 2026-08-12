@@ -32,7 +32,7 @@ public partial class MainWindow : Window
             StatusText.Text = "Lokaler VTC-Dienst startet …";
             await runtime.EnsureStartedAsync();
             overlay = new DispatcherOverlay();
-            Closed += (_, _) => overlay?.Dispose();
+            Closed += (_, _) => { connectionTimer.Stop(); overlay?.Dispose(); runtime.Dispose(); };
             await Refresh();
             StatusText.Text = "Launcher ist aktuell und startbereit";
             await CheckUpdate();
