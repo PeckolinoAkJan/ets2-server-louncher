@@ -25,8 +25,9 @@ jobs:
           Expand-Archive scs_sdk.zip -DestinationPath scs_sdk
           cmake -S vtc-client/native-plugin -B vtc-client/native-plugin/build -A x64 "-DSCS_SDK_INCLUDE=$pwd/scs_sdk/include"
           cmake --build vtc-client/native-plugin/build --config Release
-          New-Item -ItemType Directory -Force launcher-src/publish/native-plugin | Out-Null
+          New-Item -ItemType Directory -Force launcher-src/publish/native-plugin,launcher-src/publish/native-plugin/overlay-host | Out-Null
           Copy-Item vtc-client/native-plugin/build/Release/vtc_truck_hub.dll launcher-src/publish/native-plugin/
+          Copy-Item vtc-client/native-plugin/overlay-host/* launcher-src/publish/native-plugin/overlay-host/
       - name: Bundle local service without a visible console
         shell: pwsh
         run: |
