@@ -11,7 +11,8 @@ using System;
 using System.Runtime.InteropServices;
 public static class VtcGameInput {
   [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public InputUnion u; }
-  [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
   [DllImport("user32.dll", SetLastError=true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
@@ -37,7 +38,10 @@ try {
   do {$game=Get-Process eurotrucks2 -ErrorAction SilentlyContinue|Where-Object {$_.MainWindowHandle -ne 0}|Select-Object -First 1;if(-not $game){Start-Sleep -Milliseconds 500}} while(-not $game -and (Get-Date)-lt $deadline)
   if(-not $game){throw 'Das ETS2-Fenster wurde nicht gefunden.'}
   $logFile=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Euro Truck Simulator 2\game.log.txt'
-  do {$ready=(Test-Path -LiteralPath $logFile)-and((Get-Content -LiteralPath $logFile -Tail 400 -ErrorAction SilentlyContinue)-match 'New profile selected:|Set profile finished:');if(-not $ready){Start-Sleep -Milliseconds 500}} while(-not $ready -and (Get-Date)-lt $deadline)
+  # game.log.txt is recreated for every ETS2 start. Search the complete current
+  # session because loading a large mod set can push the profile marker beyond
+  # a small tail window before the helper gets CPU time.
+  do {$ready=(Test-Path -LiteralPath $logFile)-and[bool](Select-String -LiteralPath $logFile -Pattern 'New profile selected:|Set profile finished:' -Quiet -ErrorAction SilentlyContinue);if(-not $ready){Start-Sleep -Milliseconds 500}} while(-not $ready -and (Get-Date)-lt $deadline)
   if(-not $ready){throw 'Das ETS2-Profil wurde nicht rechtzeitig bereit.'}
   $overlay=[VtcGameInput]::FindWindow($null,'VTC Truck Hub Dispatcher');if($overlay-ne[IntPtr]::Zero){[VtcGameInput]::ShowWindowAsync($overlay,0)|Out-Null}
   [VtcGameInput]::ShowWindowAsync($game.MainWindowHandle,9)|Out-Null;[VtcGameInput]::SetForegroundWindow($game.MainWindowHandle)|Out-Null
