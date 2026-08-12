@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -20,6 +21,9 @@ public sealed class DispatcherOverlay : Window, IDisposable
         Content = browser;
         Loaded += async (_, _) =>
         {
+            var userData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VTC Truck Hub", "WebView2");
+            Directory.CreateDirectory(userData);
+            browser.CreationProperties = new CoreWebView2CreationProperties { UserDataFolder = userData };
             await browser.EnsureCoreWebView2Async();
             browser.CoreWebView2.Settings.AreDevToolsEnabled = false;
             browser.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
@@ -52,7 +56,13 @@ public sealed class DispatcherOverlay : Window, IDisposable
         catch { return false; }
     }
 
-    public void Dispose() => hook.Dispose();
+    public void Dispose()
+    {
+        hook.Dispose();
+        browser.Dispose();
+        Close();
+        GC.SuppressFinalize(this);
+    }
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
 
