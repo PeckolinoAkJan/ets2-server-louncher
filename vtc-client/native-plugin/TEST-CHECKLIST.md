@@ -16,8 +16,9 @@ Eine Version darf nur in `compatibility.json` eingetragen werden, wenn alle Punk
 Danach SHA256 des getesteten Builds ermitteln und `certify-version.ps1` mit allen vier Bestätigungsschaltern ausführen.
 # Verbindlicher Multiplayer-Nachweis
 
-- Der Launcher darf nach dem Reservieren nur `Warte auf das native Spielmodul` anzeigen.
-- Im ETS2/ATS-`game.log.txt` muss `vtc_truck_hub` erfolgreich geladen sein.
-- Erst nach einem erfolgreichen authentifizierten Heartbeat darf `VTC-Server verbunden` erscheinen.
-- Wird die DLL entfernt oder der lokale Dienst beendet, darf kein verbundener Zustand angezeigt werden.
-- Zwei Testrechner müssen im selben Spiel und Server gegenseitig in `remote_players` sehen.
+- Der normale Start darf keinen Testspielstand anlegen oder automatisch laden und keine Maus-/Tastatureingaben an ETS2/ATS senden.
+- Der Fahrer verwendet sein normales Profil und tritt über den offiziellen SCS-Convoy-Browser anhand der aktuellen Session Search ID bei.
+- `verbunden` darf erst nach einer echten `[MP]`-Bestätigung im seit dem Start neu geschriebenen `game.log.txt` erscheinen.
+- Ein VTC-Heartbeat, Telemetriedaten oder Einträge in `remote_players` dürfen allein niemals als Spielserververbindung gelten.
+- Bei Zeitüberschreitung nennt der Launcher die nötige manuelle Convoy-Suche und zeigt keinen falschen verbundenen Zustand.
+- Zwei Testrechner müssen zusätzlich im SCS-Convoy gegenseitig sichtbar sein; erst danach darf der Build als Multiplayer-geprüft gelten.

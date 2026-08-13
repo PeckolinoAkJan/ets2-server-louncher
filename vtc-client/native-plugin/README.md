@@ -1,6 +1,8 @@
-# Native Ingame-Integration
+# Unterstützte Ingame-Integration
 
-Dieser Ordner ist die Sicherheitsgrenze für das spätere signierte ETS2/ATS-Plugin.
+Dieser Ordner enthält die Sicherheitsgrenze für ein signiertes ETS2/ATS-Plugin auf Basis der offiziell unterstützten SCS-Schnittstellen. Der Release verwendet keine DLL-Injection, kein Function Hooking und keine Manipulation des Spielspeichers.
+
+Der Spielserverbeitritt erfolgt über den offiziellen SCS-Convoy-Browser mit dem normalen Fahrerprofil. Der Launcher darf den Zustand `verbunden` ausschließlich aus einer echten Multiplayer-Bestätigung im `game.log.txt` ableiten. Ein VTC-Heartbeat oder eine aktive Telemetrieverbindung ist kein Nachweis für einen Spielserverbeitritt.
 
 Geplante Aufgaben:
 
@@ -26,4 +28,4 @@ Die Dispatcher-API schreibt den zuletzt validierten Auftrag nach `last-offer.jso
 
 ## Noch erforderlicher versionsabhängiger Adapter
 
-Der SCS SDK deckt Telemetrie und grundlegende Eingabegeräte ab, aber keine API zum Anlegen eines Frachtmarkt-Auftrags. Der ausführende Adapter für `create_freight_market_job` und `create_owned_trailer_job` muss deshalb für jede Spielversion separat entwickelt und mit der Checkliste getestet werden. Ohne zertifizierten Eintrag arbeitet der Installer absichtlich nicht.
+Der SCS SDK deckt Telemetrie und grundlegende Eingabegeräte ab, aber keine API zum Anlegen eines Frachtmarkt-Auftrags oder zum erzwungenen Convoy-Beitritt. Solche Funktionen werden deshalb nicht als fertig oder unterstützt ausgeliefert. Ohne eine dokumentierte, sichere SCS-Schnittstelle darf kein Adapter Spielstände oder den Spielprozess verändern.

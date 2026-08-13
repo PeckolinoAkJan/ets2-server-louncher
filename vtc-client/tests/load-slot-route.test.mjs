@@ -7,7 +7,7 @@ test('Launcher lädt den VTC-Slot ohne eine SCS-Such-ID als Steam-Lobby zu verwe
   const script=readFileSync(new URL('../native-plugin/overlay-host/load-test-slot.ps1',import.meta.url),'utf8');
   assert.match(code,/load-test-slot\.ps1/);
   assert.match(code,/load-status/);
-  assert.match(code,/autoLoadDispatcherSlot\(input\.game,convoyJoin\.searchTerm\)/);
+  assert.doesNotMatch(code,/autoLoadDispatcherSlot/);
   assert.doesNotMatch(code,/'-LobbyId'/);
   assert.match(script,/SendWait\("game \$Slot"\)/);
   assert.match(script,/Loading save/);
