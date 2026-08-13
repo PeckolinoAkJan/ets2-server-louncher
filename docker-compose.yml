@@ -10,11 +10,16 @@ services:
       ETS2_SERVER_DIR: /data/ets2-server
       COOKIE_SECURE: "true"
       DATABASE_URL: "${DATABASE_URL:-}"
+      DB_SOCKET: "${DB_SOCKET:-}"
+      DB_NAME: "${DB_NAME:-}"
+      DB_USER: "${DB_USER:-}"
+      DB_PASSWORD: "${DB_PASSWORD:-}"
       DB_POOL_SIZE: "8"
       ENABLE_WEBSOCKET: "1"
       TZ: Europe/Berlin
     volumes:
       - ets2-data:/data
+      - /run/mysqld/mysqld.sock:/run/mysqld/mysqld.sock
     ports:
       - "127.0.0.1:3000:3000"
       - "27015:27015/udp"
