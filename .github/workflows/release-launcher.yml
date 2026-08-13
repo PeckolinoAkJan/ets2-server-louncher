@@ -50,11 +50,12 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force launcher-src/publish/runtime-node,launcher-src/publish/lib,launcher-src/publish/ui,launcher-src/publish/catalog | Out-Null
           Copy-Item (Get-Command node.exe).Source launcher-src/publish/runtime-node/node.exe
-          Copy-Item vtc-client/launcher.mjs,vtc-client/config.example.json launcher-src/publish/
+          Copy-Item vtc-client/launcher.mjs,vtc-client/config.example.json,vtc-client/package.json launcher-src/publish/
           Copy-Item vtc-client/lib/*.mjs launcher-src/publish/lib/
           Copy-Item vtc-client/lib/dispatcher-core launcher-src/publish/lib/dispatcher-core -Recurse
           Copy-Item vtc-client/ui/* launcher-src/publish/ui/
           Copy-Item vtc-client/catalog/*.json launcher-src/publish/catalog/
+          node -e "import('./launcher-src/publish/lib/dispatcher-core/index.js').then(m => { if (!m.JobInjector || !m.SiiParser) process.exit(2) })"
       - name: Bundle licensed save decryptor for the dispatcher
         shell: pwsh
         run: |

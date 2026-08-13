@@ -7,6 +7,10 @@ test('Normaler Start richtet eine separate Savegame-Kopie ohne Eingabeautomation
   assert.match(workflow, /native-plugin\/overlay-host\/\*/);
   assert.match(workflow, /dispatcher-core run build/);
   assert.match(workflow, /lib\/dispatcher-core/);
+  assert.match(workflow, /vtc-client\/package\.json/);
+  assert.match(workflow, /publish\/lib\/dispatcher-core\/index\.js/);
+  const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(packageJson.type, 'module');
   const runtime = readFileSync(new URL('../launcher.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(runtime, /autoLoadDispatcherSlot/);
   assert.match(runtime, /load-test-slot\.ps1/);
