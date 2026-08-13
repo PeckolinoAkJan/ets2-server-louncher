@@ -75,14 +75,8 @@ try {
   [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
   [Windows.Forms.SendKeys]::SendWait('ui s convoy.sessions');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
   [VtcGameInput]::Scan(0x29);Start-Sleep -Seconds 2
-  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,144,815);Start-Sleep -Milliseconds 300
-  [Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($SearchTerm);Start-Sleep -Milliseconds 300
-  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,281,815);Start-Sleep -Seconds 8
-  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,450,738);Start-Sleep -Seconds 1
-  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,978,42)
-
-  $joinDeadline=(Get-Date).AddSeconds(45);$joined=$false;$failed=$false
-  do {Start-Sleep -Milliseconds 500;$tail=Get-Content -LiteralPath $logFile -Tail 1200 -ErrorAction SilentlyContinue;$joined=[bool]($tail-match '\[MP\].*(connected|join|session)');$failed=[bool]($tail-match '\[MP\].*(failed|error|disconnect|rejected)')} while(-not $joined -and -not $failed -and (Get-Date)-lt $joinDeadline)
-  if(-not $joined){throw "Der offizielle Convoy-Browser hat den Beitritt mit Search ID $SearchTerm nicht bestaetigt."}
-  Write-Result 'connected' "ETS2 ist dem Convoy $SearchTerm beigetreten.";Write-Host "ETS2 ist dem Convoy $SearchTerm beigetreten." -ForegroundColor Green
+  [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
+  [Windows.Forms.SendKeys]::SendWait('screenshot vtc_convoy_browser');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
+  [VtcGameInput]::Scan(0x29)
+  Write-Result 'browser_opened' "Der offizielle Convoy-Browser wurde zur sicheren Kalibrierung geoeffnet."
 } catch {Write-Result 'error' $_.Exception.Message;throw}
