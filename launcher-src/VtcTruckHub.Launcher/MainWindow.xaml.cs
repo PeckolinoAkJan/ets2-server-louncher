@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     string? launchedGame;
     UpdateInfo? availableUpdate;
     DispatcherOverlay? overlay;
+    JoinRequest? pendingJoin;
 
     public MainWindow()
     {
@@ -50,6 +51,7 @@ public partial class MainWindow : Window
             await Refresh();
             StatusText.Text = "Launcher ist aktuell und startbereit";
             await CheckUpdate();
+            if (pendingJoin is { } request) { pendingJoin = null; await Play(request); }
         }
         catch (Exception ex)
         {
@@ -142,10 +144,22 @@ public partial class MainWindow : Window
         }
     }
 
-    async Task Play()
+    public void QueueJoinUri(string value)
+    {
+        if (!JoinRequest.TryParse(value, out var request) || request is null) return;
+        pendingJoin = request;
+        if (!IsLoaded) return;
+        Dispatcher.BeginInvoke(async () => { var queued = pendingJoin; pendingJoin = null; if (queued is not null) await Play(queued); });
+    }
+
+    async Task Play(JoinRequest? requested = null)
     {
         if (state is null) return;
-        var game = SelectedGame();
+        var game = requested?.Game ?? SelectedGame();
+        if (requested is not null)
+        {
+            GameSelect.SelectedItem = GameSelect.Items.Cast<ComboBoxItem>().FirstOrDefault(item => string.Equals(item.Tag?.ToString(), game, StringComparison.OrdinalIgnoreCase)) ?? GameSelect.SelectedItem;
+        }
         if (state.Games.FirstOrDefault(g => g.Id == game)?.Installed != true) { MessageBox.Show("Dieses Spiel wurde nicht gefunden."); return; }
         if (state.Account is null && !await Login(true)) return;
         if (game == "ets2" && state.TestSave is null)
@@ -165,7 +179,8 @@ public partial class MainWindow : Window
         }
         var servers = state.Servers.Where(s => s.Game == game).ToArray();
         if (servers.Length == 0) { MessageBox.Show("Kein passender VTC-Server eingerichtet."); return; }
-        var server = servers.Length == 1 ? servers[0] : ChooseServer(servers);
+        var server = requested is null ? (servers.Length == 1 ? servers[0] : ChooseServer(servers)) : servers.FirstOrDefault(item => item.Id == requested.ServerId);
+        if (requested is not null && server is null) { MessageBox.Show("Der angeforderte VTC-Server ist für dieses Spiel nicht verfügbar.", "Serverbeitritt", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         if (server is null) return;
 
         PlayButton.IsEnabled = false;

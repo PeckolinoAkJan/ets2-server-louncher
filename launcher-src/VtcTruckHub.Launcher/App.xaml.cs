@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
@@ -9,6 +10,9 @@ public partial class App : Application
 {
     Mutex? instanceMutex;
     bool ownsInstanceMutex;
+    static readonly string PendingUriFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "VTC Truck Hub", "Launcher", "pending-uri.txt");
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -16,11 +20,17 @@ public partial class App : Application
         ownsInstanceMutex = firstInstance;
         if (!firstInstance)
         {
+            SavePendingUri(e.Args);
             ActivateExistingWindow();
             Shutdown();
             return;
         }
         base.OnStartup(e);
+        var window = new MainWindow();
+        MainWindow = window;
+        window.Show();
+        if (e.Args.FirstOrDefault() is { } initialUri) window.QueueJoinUri(initialUri);
+        window.Activated += (_, _) => DeliverPendingUri(window);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -45,6 +55,26 @@ public partial class App : Application
             SetForegroundWindow(process.MainWindowHandle);
             break;
         }
+    }
+
+    static void SavePendingUri(string[] args)
+    {
+        var uri = args.FirstOrDefault();
+        if (!JoinRequest.TryParse(uri, out _)) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(PendingUriFile)!);
+        File.WriteAllText(PendingUriFile, uri!);
+    }
+
+    static void DeliverPendingUri(MainWindow window)
+    {
+        try
+        {
+            if (!File.Exists(PendingUriFile)) return;
+            var uri = File.ReadAllText(PendingUriFile).Trim();
+            File.Delete(PendingUriFile);
+            window.QueueJoinUri(uri);
+        }
+        catch { }
     }
 
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr handle);

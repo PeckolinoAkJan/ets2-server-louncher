@@ -14,7 +14,15 @@ jobs:
         with: { dotnet-version: '8.0.x' }
       - name: Test server and local API
         shell: pwsh
-        run: node --test tests/database.test.mjs tests/server.test.mjs tests/multiplayer-hub.test.mjs vtc-client/tests/*.test.mjs
+        run: |
+          node --test tests/database.test.mjs tests/server.test.mjs tests/multiplayer-hub.test.mjs vtc-client/tests/*.test.mjs
+          dotnet test launcher-src/VtcTruckHub.Launcher.Tests/VtcTruckHub.Launcher.Tests.csproj -c Release
+      - name: Verify launcher versions stay synchronized
+        shell: pwsh
+        run: |
+          $runtime = Select-String vtc-client/launcher.mjs -Pattern "RUNTIME_VERSION='([^']+)'"
+          $service = Select-String launcher-src/VtcTruckHub.Launcher/RuntimeService.cs -Pattern 'ExpectedRuntimeVersion = "([^"]+)"'
+          if ($runtime.Matches[0].Groups[1].Value -ne $service.Matches[0].Groups[1].Value) { throw 'Launcher runtime versions are not synchronized' }
       - name: Publish native launcher
         shell: pwsh
         run: dotnet publish launcher-src/VtcTruckHub.Launcher/VtcTruckHub.Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o launcher-src/publish

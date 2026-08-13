@@ -12,10 +12,11 @@ import { SaveJobService } from "./lib/save-job-service.mjs";
 import { currentLaunchLog, parseConnectionStatus, readGameLogStatus } from "./lib/game-log-status.mjs";
 import { steamLaunchArguments } from "./lib/game-launch.mjs";
 import { MultiplayerClient } from "./lib/multiplayer-client.mjs";
+import { convoyJoinRequest } from "./lib/convoy-join.mjs";
 
 const parseJsonFile=file=>JSON.parse(readFileSync(file,'utf8').replace(/^\uFEFF/,''));
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),configFile=path.join(ROOT,'config.json'),config=existsSync(configFile)?parseJsonFile(configFile):parseJsonFile(path.join(ROOT,'config.example.json'));
-const RUNTIME_VERSION='0.9.8';
+const RUNTIME_VERSION='0.9.9-dev';
 const PORT=Number(process.env.VTC_LOCAL_PORT||config.localPort||27111),sessions=new Map(),offers=[],integration=new IntegrationState(),launches=new Map();let multiplayerClient=null,recoveryPromise=null;
 const enabledGames=Array.isArray(config.enabledGames)&&config.enabledGames.length?config.enabledGames:['ets2'];
 const authFile=path.join(ROOT,'auth.json'),storedAuth=existsSync(authFile)?parseJsonFile(authFile):null;if(storedAuth?.account&&storedAuth?.accessToken)sessions.set('local',storedAuth);
@@ -43,24 +44,28 @@ function connectionStatus(game){
     const logText=readFileSync(file,'utf8'),offset=Number(launch.logOffset)||0;
     // ETS2 recreates game.log.txt at startup. A byte offset captured from the
     // previous run may be beyond the new log and must not hide live MP lines.
-    const convoy=parseConnectionStatus(currentLaunchLog(logText,offset),launch.server);
+    const convoy=parseConnectionStatus(currentLaunchLog(logText,offset),launch.server,Date.now()-launch.startedAt);
     if(convoy.status==='failed')return{...convoy,multiplayer:snapshot};
-    if(convoy.status!=='connected')return{status:'joining_convoy',message:'VTC-Kanal bereit. ETS2 verbindet jetzt mit dem Convoy-Server �?�',server,multiplayer:snapshot};
+    if(convoy.status!=='connected')return{...convoy,multiplayer:snapshot};
     return{status:'connected',message:`VTC- und Spielserver verbunden · ${snapshot.players.length+1} VTC-Fahrer synchronisiert`,server,multiplayer:snapshot};
   }
   const launch=launches.get(game);if(!launch)return{status:'idle',message:'Noch kein Serverbeitritt gestartet.'};
   const file=gameLog(game);if(!existsSync(file))return{status:'starting',message:'Spiel wird gestartet �?�',server:launch.server};
-  const logText=readFileSync(file,'utf8'),offset=Number(launch.logOffset)||0;const text=currentLaunchLog(logText,offset);return parseConnectionStatus(text,launch.server);
+  const logText=readFileSync(file,'utf8'),offset=Number(launch.logOffset)||0;const text=currentLaunchLog(logText,offset);return parseConnectionStatus(text,launch.server,Date.now()-launch.startedAt);
 }
 let telemetryService=null;
 function telemetryStatus(){return{configured:Boolean(sessions.get('local')?.accessToken),running:Boolean(telemetryService?.timer),lastError:telemetryService?.lastError||null};}
 function startTelemetry(game='ets2') { const auth=sessions.get('local'),account=auth?.account;if(!config.telemetryAutoStart||!auth?.accessToken||!account)return false;telemetryService?.stop();telemetryService=new TelemetryService({panelUrl:config.panelUrl,token:auth.accessToken,game,driverName:account.displayName,steamId:account.steamId,clientAuth:true});telemetryService.start();return true; }
-function autoLoadDispatcherSlot(game,searchId=''){
+function autoLoadDispatcherSlot(game){
   if(game!=='ets2')return null;const manifest=activeTestSave();if(!manifest)return null;
   const slot=Number(path.basename(manifest.target));if(!Number.isInteger(slot)||slot<1||slot>99)return null;
   const script=path.join(ROOT,'native-plugin','overlay-host','load-test-slot.ps1'),resultFile=path.join(ROOT,'runtime','auto-load-slot.json');if(!existsSync(script))return null;
-  const lobbyId=String(searchId).split('/')[0];if(!/^\d{17,20}$/.test(lobbyId))return null;
-  rmSync(resultFile,{force:true});const child=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-Slot',String(slot),'-LobbyId',lobbyId,'-ResultFile',resultFile],{detached:true,stdio:'ignore',windowsHide:true});child.unref();return{slot,resultFile,lobbyId};
+  rmSync(resultFile,{force:true});const child=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-Slot',String(slot),'-ResultFile',resultFile],{detached:true,stdio:'ignore',windowsHide:true});child.unref();return{slot,resultFile};
+}
+function prepareConvoyJoin(game,server){
+  const request=convoyJoinRequest(game,server),requestFile=path.join(ROOT,'runtime','convoy-join-request.json');
+  writeFileSync(requestFile,JSON.stringify(request,null,2));
+  return{...request,requestFile,status:'prepared'};
 }
 async function recoverMultiplayer(game){
   if(multiplayerClient?.game===game&&multiplayerClient.session)return multiplayerClient;
@@ -128,8 +133,8 @@ const server=http.createServer(async(req,res)=>{const url=new URL(req.url,`http:
     const log=gameLog(input.game),logOffset=existsSync(log)?readFileSync(log).length:0,steam=steamExecutable(game);if(!steam)return send(res,409,{error:'Steam.exe wurde zur Spielinstallation nicht gefunden.'});
     const args=steamLaunchArguments(game,live);
     spawn(steam,args,{detached:true,stdio:'ignore',windowsHide:true}).unref();if(!await waitForGame(game))return send(res,504,{error:'Steam hat das Spiel innerhalb von 30 Sekunden nicht gestartet. Bitte Steam öffnen und den Start erneut versuchen.'});
-    const launchState={game:input.game,server:live,startedAt:Date.now(),logOffset,searchId:live.searchId};launches.set(input.game,launchState);writeFileSync(activeLaunchFile,JSON.stringify(launchState,null,2));startTelemetry(input.game);const autoLoad=autoLoadDispatcherSlot(input.game,live.searchId);
-    return send(res,202,{ok:true,game:input.game,server:live,connection:'hybrid-pending',autoLoad,message:autoLoad?`Spiel gestartet. VTC-Spielstand ${autoLoad.slot} wird automatisch geladen; danach erfolgt der Serverbeitritt ohne weiteren Launcher-Klick.`:'Spiel gestartet. Nach der Profilauswahl verbindet das Spiel automatisch mit dem VTC-Server.'});
+    const launchState={game:input.game,server:live,startedAt:Date.now(),logOffset,searchId:live.searchId};launches.set(input.game,launchState);writeFileSync(activeLaunchFile,JSON.stringify(launchState,null,2));startTelemetry(input.game);const autoLoad=autoLoadDispatcherSlot(input.game),convoyJoin=prepareConvoyJoin(input.game,live);
+    return send(res,202,{ok:true,game:input.game,server:live,connection:'convoy-browser-pending',autoLoad,convoyJoin,searchId:live.searchId,message:autoLoad?`Spiel gestartet. VTC-Spielstand ${autoLoad.slot} wird automatisch geladen. Convoy-Suche ${convoyJoin.searchTerm} ist vorbereitet.`:`Spiel gestartet. Convoy-Suche ${convoyJoin.searchTerm} ist vorbereitet.`});
   }
   if(url.pathname==='/'||url.pathname==='/index.html')return staticFile(res,'index.html');if(url.pathname==='/ingame.html')return staticFile(res,'ingame.html');if(url.pathname==='/app.js')return staticFile(res,'app.js');if(url.pathname==='/style.css')return staticFile(res,'style.css');return send(res,404,{error:'Nicht gefunden'});
 }catch(e){return send(res,400,{error:e.message});}});

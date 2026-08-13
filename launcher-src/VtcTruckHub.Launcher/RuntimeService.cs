@@ -8,7 +8,7 @@ namespace VtcTruckHub.Launcher;
 
 public sealed class RuntimeService : IDisposable
 {
-    private const string ExpectedRuntimeVersion = "0.9.8";
+    private const string ExpectedRuntimeVersion = "0.9.9-dev";
     private readonly string root = AppContext.BaseDirectory;
     private Process? serviceProcess;
 
