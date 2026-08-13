@@ -62,15 +62,18 @@ function Write-Result([string]$Status,[string]$Message) {
   [pscustomobject]@{status=$Status;message=$Message;slot=$Slot;searchTerm=$SearchTerm;finishedAt=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $ResultFile -Encoding UTF8
 }
 try {
+  Write-Result 'waiting_window' 'Warte auf das sichtbare ETS2-Fenster.'
   $deadline=(Get-Date).AddSeconds($ReadyTimeoutSeconds)
   do {$game=Get-Process eurotrucks2 -ErrorAction SilentlyContinue|Select-Object -First 1;$gameHandle=if($game){[VtcGameInput]::ProcessWindow([uint32]$game.Id)}else{[IntPtr]::Zero};if($gameHandle-eq[IntPtr]::Zero){Start-Sleep -Milliseconds 500}} while($gameHandle-eq[IntPtr]::Zero -and (Get-Date)-lt $deadline)
   if($gameHandle-eq[IntPtr]::Zero){throw 'Das sichtbare ETS2-Fenster wurde nicht gefunden.'}
+  Write-Result 'window_found' 'Das sichtbare ETS2-Fenster wurde erkannt.'
   $logFile=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Euro Truck Simulator 2\game.log.txt'
   # game.log.txt is recreated for every ETS2 start. Search the complete current
   # session because loading a large mod set can push the profile marker beyond
   # a small tail window before the helper gets CPU time.
   do {$ready=(Test-Path -LiteralPath $logFile)-and[bool](Select-String -LiteralPath $logFile -Pattern 'New profile selected:|Set profile finished:' -Quiet -ErrorAction SilentlyContinue);if(-not $ready){Start-Sleep -Milliseconds 500}} while(-not $ready -and (Get-Date)-lt $deadline)
   if(-not $ready){throw 'Das ETS2-Profil wurde nicht rechtzeitig bereit.'}
+  Write-Result 'profile_ready' 'Das ETS2-Profil ist bereit.'
   $overlay=[VtcGameInput]::FindWindow($null,'VTC Truck Hub Dispatcher');if($overlay-ne[IntPtr]::Zero){[VtcGameInput]::ShowWindowAsync($overlay,0)|Out-Null}
   [VtcGameInput]::ShowWindowAsync($gameHandle,9)|Out-Null;[VtcGameInput]::SetForegroundWindow($gameHandle)|Out-Null
   Start-Sleep -Milliseconds $DelayMilliseconds
@@ -79,17 +82,21 @@ try {
   $loadDeadline=(Get-Date).AddSeconds(45);$loaded=$false
   do {Start-Sleep -Milliseconds 500;$tail=Get-Content -LiteralPath $logFile -Tail 700 -ErrorAction SilentlyContinue;$loaded=[bool]($tail-match"Loading save\..*slot:\s*$Slot,.*?/save/$Slot/game\.sii")} while(-not $loaded -and (Get-Date)-lt $loadDeadline)
   if(-not $loaded){throw "ETS2 hat Testslot $Slot nicht bestätigt geladen."}
+  Write-Result 'slot_loaded' "ETS2-Testslot $Slot wurde geladen."
   if(-not $SearchTerm){Write-Result 'loaded' "ETS2-Testslot $Slot wurde geladen.";Write-Host "ETS2-Testslot $Slot wurde geladen." -ForegroundColor Green;exit 0}
 
   # Use the official SCS Convoy browser. The Search ID is not a Steam lobby ID.
   # Coordinates use SCS' 1440x900 virtual UI canvas and are scaled to the game
   # client area, so the adapter does not depend on a fixed desktop resolution.
   [VtcGameInput]::SetForegroundWindow($gameHandle)|Out-Null
+  Write-Result 'opening_console' 'Oeffne die ETS2-Konsole fuer den offiziellen Convoy-Browser.'
   [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
   [Windows.Forms.SendKeys]::SendWait('ui s convoy.sessions');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
+  Write-Result 'browser_command_sent' 'Der Convoy-Browser-Befehl wurde gesendet.'
   [VtcGameInput]::Scan(0x29);Start-Sleep -Seconds 2
+  Write-Result 'browser_opened' 'Der offizielle Convoy-Browser wurde geoeffnet.'
   [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
   [Windows.Forms.SendKeys]::SendWait('screenshot vtc_convoy_browser');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
   [VtcGameInput]::Scan(0x29)
-  Write-Result 'browser_opened' "Der offizielle Convoy-Browser wurde zur sicheren Kalibrierung geoeffnet."
+  Write-Result 'screenshot_requested' 'Der ETS2-Kalibrierungsscreenshot wurde angefordert.'
 } catch {Write-Result 'error' $_.Exception.Message;throw}
