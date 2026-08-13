@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SiiParser } from '../src/sii-parser.ts';
-import { SiiSyntaxError } from '../src/sii-types.ts';
+import { SiiParser, SiiSyntaxError } from '../../vtc-client/lib/dispatcher-core/index.js';
 import { saveWithFreeSlot } from './fixture.ts';
 
 test('SII-Parser erzeugt Units und Properties ohne Regex-Manipulation', () => {

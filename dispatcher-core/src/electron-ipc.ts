@@ -1,5 +1,5 @@
-import type { DispatchFileRequest, DispatchFileResult } from './dispatcher-service.ts';
-import { DispatcherService } from './dispatcher-service.ts';
+import type { DispatchFileRequest, DispatchFileResult } from './dispatcher-service.js';
+import { DispatcherService } from './dispatcher-service.js';
 
 export const DISPATCH_JOB_CHANNEL = 'vtc-dispatcher:inject-job' as const;
 
@@ -63,4 +63,3 @@ export function validateIpcRequest(value: unknown): DispatchFileRequest {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-

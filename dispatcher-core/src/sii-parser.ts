@@ -1,5 +1,5 @@
-import { SiiSyntaxError, scalar } from './sii-types.ts';
-import type { SiiDocument, SiiProperty, SiiUnit } from './sii-types.ts';
+import { SiiSyntaxError, scalar } from './sii-types.js';
+import type { SiiDocument, SiiProperty, SiiUnit } from './sii-types.js';
 
 export class SiiParser {
   private source = '';
@@ -183,4 +183,3 @@ export function quoteSiiString(value: string): string {
   if (value.includes('\0') || /[\r\n]/.test(value)) throw new Error('SII-Strings dürfen keine Zeilenumbrüche oder NUL-Zeichen enthalten');
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
-

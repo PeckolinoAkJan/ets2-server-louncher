@@ -1,6 +1,6 @@
-import { cloneUnit, scalar } from './sii-types.ts';
-import type { SiiDocument, SiiProperty, SiiUnit } from './sii-types.ts';
-import { PointerGenerator } from './pointer-generator.ts';
+import { cloneUnit, scalar } from './sii-types.js';
+import type { SiiDocument, SiiProperty, SiiUnit } from './sii-types.js';
+import { PointerGenerator } from './pointer-generator.js';
 
 const POINTER_PATTERN = /^_nameless\.[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}$/i;
 const TOKEN_PATTERN = /^[a-z0-9_.-]+$/i;

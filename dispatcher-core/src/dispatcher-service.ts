@@ -1,9 +1,9 @@
 import { closeSync, copyFileSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { JobInjector } from './job-injector.ts';
-import type { JobInjectionRequest } from './job-injector.ts';
-import { SiiParser } from './sii-parser.ts';
+import { JobInjector } from './job-injector.js';
+import type { JobInjectionRequest } from './job-injector.js';
+import { SiiParser } from './sii-parser.js';
 
 export type DispatchFileRequest = JobInjectionRequest & {
   gameSiiPath: string;

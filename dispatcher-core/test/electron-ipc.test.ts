@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DISPATCH_JOB_CHANNEL, createDispatcherRendererApi, registerDispatcherIpc, validateIpcRequest } from '../src/electron-ipc.ts';
+import { DISPATCH_JOB_CHANNEL, createDispatcherRendererApi, registerDispatcherIpc, validateIpcRequest } from '../../vtc-client/lib/dispatcher-core/index.js';
 import { request } from './fixture.ts';
 
 test('IPC validiert Renderer-Daten und reicht nur typisierte Werte weiter', async () => {

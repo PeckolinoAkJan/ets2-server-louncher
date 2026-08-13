@@ -4,8 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { DispatcherService } from '../src/dispatcher-service.ts';
-import { SiiParser } from '../src/sii-parser.ts';
+import { DispatcherService, SiiParser } from '../../vtc-client/lib/dispatcher-core/index.js';
 import { request, saveWithFreeSlot } from './fixture.ts';
 
 test('DispatcherService schreibt atomisch, legt Backup an und prüft SHA256', () => {
@@ -31,4 +30,3 @@ test('DispatcherService lehnt verschlüsselte oder falsch benannte Dateien ab', 
   writeFileSync(encrypted, 'ScsC');
   assert.throws(() => new DispatcherService().injectFile({ ...request, gameSiiPath: encrypted }), /verschlüsselt/);
 });
-

@@ -5,7 +5,7 @@ public sealed record GameInfo(string Id,string Exe,string SteamAppId,string Docu
 public sealed record ServerInfo(string Id,string Game,string Name,string Host,int Port,string? SearchId=null,bool Running=false,string? Mode=null,int Players=0,int Capacity=128);
 public sealed record AccountInfo(string SteamId,string VtcAccountId,string DisplayName,string? Role);
 public sealed record ClientConfig(string PanelUrl,string PreferredMapProfile,string DispatcherHotkey,bool TelemetryAutoStart,string[] EnabledGames);
-public sealed record ClientStatus(string? RuntimeVersion,GameInfo[] Games,ServerInfo[] Servers,AccountInfo? Account,ClientConfig Config);
+public sealed record ClientStatus(string? RuntimeVersion,GameInfo[] Games,ServerInfo[] Servers,AccountInfo? Account,ClientConfig Config,JsonElement? TestSave);
 public sealed record SaveSetupResult(bool Ok,int Slot,string Target,string Backup);
 public sealed record DeviceStart(string DeviceCode,string UserCode,string VerificationUri,int ExpiresIn,int Interval);
 public sealed record TokenResult(string? Status,string? AccessToken,AccountInfo? Account,string? Error);

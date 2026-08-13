@@ -20,6 +20,7 @@ jobs:
           pnpm --dir dispatcher-core install --frozen-lockfile
           pnpm --dir dispatcher-core run typecheck
           pnpm --dir dispatcher-core test
+          pnpm --dir dispatcher-core run build
       - name: Test server and local API
         shell: pwsh
         run: |
@@ -51,6 +52,7 @@ jobs:
           Copy-Item (Get-Command node.exe).Source launcher-src/publish/runtime-node/node.exe
           Copy-Item vtc-client/launcher.mjs,vtc-client/config.example.json launcher-src/publish/
           Copy-Item vtc-client/lib/*.mjs launcher-src/publish/lib/
+          Copy-Item vtc-client/lib/dispatcher-core launcher-src/publish/lib/dispatcher-core -Recurse
           Copy-Item vtc-client/ui/* launcher-src/publish/ui/
           Copy-Item vtc-client/catalog/*.json launcher-src/publish/catalog/
       - name: Bundle licensed save decryptor for the dispatcher

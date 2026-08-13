@@ -162,6 +162,21 @@ public partial class MainWindow : Window
         }
         if (state.Games.FirstOrDefault(g => g.Id == game)?.Installed != true) { MessageBox.Show("Dieses Spiel wurde nicht gefunden."); return; }
         if (state.Account is null && !await Login(true)) return;
+        if (game == "ets2" && state.TestSave is null)
+        {
+            var setup = MessageBox.Show("Für den Dispatcher wird einmalig eine separate Kopie deines neuesten ETS2-Autosaves angelegt. Deine bestehenden Spielstände werden weder verändert noch gelöscht.\n\nVTC-Dispatcher-Spielstand jetzt sicher erstellen?", "Dispatcher-Spielstand", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
+            if (setup == MessageBoxResult.Cancel) return;
+            if (setup == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var result = await api.SetupDispatcher();
+                    StatusText.Text = $"VTC-Dispatcher-Spielstand in Slot {result.Slot} erstellt";
+                    await Refresh();
+                }
+                catch (Exception ex) { MessageBox.Show(ex.Message, "Savegame-Einrichtung fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error); return; }
+            }
+        }
         var servers = state.Servers.Where(s => s.Game == game).ToArray();
         if (servers.Length == 0) { MessageBox.Show("Kein passender VTC-Server eingerichtet."); return; }
         var server = requested is null ? (servers.Length == 1 ? servers[0] : ChooseServer(servers)) : servers.FirstOrDefault(item => item.Id == requested.ServerId);

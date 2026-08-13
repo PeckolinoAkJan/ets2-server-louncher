@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import type { SiiDocument } from './sii-types.ts';
+import type { SiiDocument } from './sii-types.js';
 
 export type RandomBytes = (size: number) => Uint8Array;
+const LEGACY_POINTER_PATTERN = /^_nameless(?:\.[0-9a-f]+)+$/i;
 
 export class PointerGenerator {
   private readonly occupied: Set<string>;
@@ -13,7 +14,14 @@ export class PointerGenerator {
   }
 
   static fromDocument(document: SiiDocument, random?: RandomBytes): PointerGenerator {
-    return new PointerGenerator(document.units.map((unit) => unit.id), random);
+    const pointers = new Set<string>();
+    for (const unit of document.units) {
+      if (LEGACY_POINTER_PATTERN.test(unit.id)) pointers.add(unit.id);
+      for (const property of unit.properties) {
+        for (const match of property.value.raw.matchAll(/_nameless(?:\.[0-9a-f]+)+/gi)) pointers.add(match[0]);
+      }
+    }
+    return new PointerGenerator(pointers, random);
   }
 
   next(): string {
@@ -29,4 +37,3 @@ export class PointerGenerator {
     throw new Error('Nach 1024 Versuchen konnte keine eindeutige _nameless-ID erzeugt werden');
   }
 }
-

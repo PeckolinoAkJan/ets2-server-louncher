@@ -1,10 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { JobInjector } from '../src/job-injector.ts';
-import { SiiParser } from '../src/sii-parser.ts';
+import { JobInjector, SiiParser } from '../../vtc-client/lib/dispatcher-core/index.js';
 import { request, saveWithFreeSlot } from './fixture.ts';
 
-const property = (unit: ReturnType<SiiParser['parse']>['units'][number], key: string) => unit.properties.find((item) => item.key === key && item.index === null)?.value.raw;
+const property = (unit: any, key: string) => unit.properties.find((item: any) => item.key === key && item.index === null)?.value.raw;
 
 test('JobInjector erzeugt vollständigen company_job im freien null-Slot', () => {
   const parser = new SiiParser();

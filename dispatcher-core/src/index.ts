@@ -1,7 +1,6 @@
-export * from './sii-types.ts';
-export * from './sii-parser.ts';
-export * from './pointer-generator.ts';
-export * from './job-injector.ts';
-export * from './dispatcher-service.ts';
-export * from './electron-ipc.ts';
-
+export * from './sii-types.js';
+export * from './sii-parser.js';
+export * from './pointer-generator.js';
+export * from './job-injector.js';
+export * from './dispatcher-service.js';
+export * from './electron-ipc.js';

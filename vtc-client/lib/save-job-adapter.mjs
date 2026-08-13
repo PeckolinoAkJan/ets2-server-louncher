@@ -1,32 +1,23 @@
-import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
+import {readFileSync,writeFileSync,copyFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
+import {JobInjector,SiiParser} from './dispatcher-core/index.js';
+const parser=new SiiParser(),injector=new JobInjector();
+const clean=value=>value?.replace(/^"|"$/g,'')??null;
+const scalar=(unit,key)=>unit.properties.find(property=>property.key===key&&property.index===null)?.value.raw??null;
+const isOffer=unit=>unit.unitType==='company_job'||unit.unitType==='job_offer_data';
 
-const COMPANY_RE=/^company\s*:\s*(company\.volatile\.([^.\s]+)\.([^\s{]+))\s*\{([\s\S]*?)^\}/gm;
-const OFFER_RE=/^job_offer_data\s*:\s*([^\s{]+)\s*\{([\s\S]*?)^\}/gm;
-
-function field(block,name){const match=block.match(new RegExp(`^\\s*${name}:\\s*(.+)$`,'m'));return match?.[1]?.trim()??null;}
-function clean(value){return value?.replace(/^"|"$/g,'')??null;}
-function setField(block,name,value){const re=new RegExp(`^(\\s*${name}:\\s*).+$`,'m');if(!re.test(block))throw new Error(`Pflichtfeld ${name} fehlt`);return block.replace(re,`$1${value}`);}
 export function parseSave(text){
-  const companies=[],offers=new Map();let match;
-  while((match=OFFER_RE.exec(text)))offers.set(match[1],{id:match[1],target:clean(field(match[2],'target')),expirationTime:Number(field(match[2],'expiration_time')),urgency:Number(field(match[2],'urgency')),distanceKm:Number(field(match[2],'shortest_distance_km')),cargo:field(match[2],'cargo'),companyTruck:field(match[2],'company_truck'),trailerVariant:field(match[2],'trailer_variant'),trailerDefinition:field(match[2],'trailer_definition'),unitsCount:Number(field(match[2],'units_count')),fillRatio:Number(field(match[2],'fill_ratio'))});
-  while((match=COMPANY_RE.exec(text))){const links=[...match[4].matchAll(/^\s*job_offer\[\d+\]:\s*(\S+)/gm)].map(x=>x[1]);companies.push({unit:match[1],company:match[2],city:match[3],offerIds:links,offers:links.map(id=>offers.get(id)).filter(Boolean)});}
+  const document=parser.parse(text),offers=new Map();
+  for(const unit of document.units.filter(isOffer))offers.set(unit.id,{id:unit.id,target:clean(scalar(unit,'target')),expirationTime:Number(scalar(unit,'expiration_time')??scalar(unit,'time_limit')),urgency:Number(scalar(unit,'urgency')),distanceKm:Number(scalar(unit,'shortest_distance_km')),cargo:scalar(unit,'cargo'),companyTruck:scalar(unit,'company_truck'),trailerVariant:scalar(unit,'trailer_variant'),trailerDefinition:scalar(unit,'trailer_definition'),unitsCount:Number(scalar(unit,'units_count')),fillRatio:Number(scalar(unit,'fill_ratio'))});
+  const companies=document.units.filter(unit=>unit.unitType==='company').map(unit=>{const match=/^company\.volatile\.([^.\s]+)\.([^\s]+)$/i.exec(unit.id);if(!match)return null;const offerIds=unit.properties.filter(property=>property.key==='job_offer'&&property.index!==null).sort((a,b)=>a.index-b.index).map(property=>property.value.raw).filter(id=>id!=='null');return{unit:unit.id,company:match[1],city:match[2],offerIds,offers:offerIds.map(id=>offers.get(id)).filter(Boolean)};}).filter(Boolean);
   return{companies,offers:[...offers.values()]};
 }
 
-export function createRealOfferPatch(text,{sourceUnit,destinationUnit,templateOfferId,urgency=0,distanceKm}){
-  const parsed=parseSave(text),source=parsed.companies.find(x=>x.unit===sourceUnit),destination=parsed.companies.find(x=>x.unit===destinationUnit),template=parsed.offers.find(x=>x.id===templateOfferId);
-  if(!source)throw new Error('Quellfirma existiert nicht im Spielstand');if(!destination)throw new Error('Zielfirma existiert nicht im Spielstand');if(!template)throw new Error('Fracht-/Trailervorlage existiert nicht im Spielstand');
-  if(!source.offerIds.length)throw new Error('Die Quellfirma besitzt aktuell keinen überschreibbaren Frachtplatz');
-  if(!source.offerIds.includes(templateOfferId))throw new Error('Fracht-/Trailervorlage ist für die gewählte Abholfirma nicht freigegeben');
-  const targetId=source.offerIds[0];let changed=false;
-  const output=text.replace(OFFER_RE,(whole,id,block)=>{if(id!==targetId)return whole;changed=true;let next=block;next=setField(next,'target',`"${destination.company}.${destination.city}"`);next=setField(next,'expiration_time',String(Math.max(template.expirationTime||0,99999999)));next=setField(next,'urgency',String(Math.max(0,Math.min(2,Number(urgency)||0))));next=setField(next,'shortest_distance_km',String(Math.max(1,Number(distanceKm)||template.distanceKm||1000)));next=setField(next,'ferry_time','0');next=setField(next,'ferry_price','0');next=setField(next,'cargo',template.cargo);next=setField(next,'company_truck',template.companyTruck);next=setField(next,'trailer_variant',template.trailerVariant);next=setField(next,'trailer_definition',template.trailerDefinition);next=setField(next,'units_count',String(template.unitsCount));next=setField(next,'fill_ratio',String(template.fillRatio||1));return`job_offer_data : ${id} {${next}\n}`;});
-  if(!changed)throw new Error('Frachtplatz konnte nicht geschrieben werden');
-  const proof=parseSave(output).offers.find(x=>x.id===targetId);if(proof?.target!==`${destination.company}.${destination.city}`||proof?.cargo!==template.cargo||proof?.trailerDefinition!==template.trailerDefinition)throw new Error('Nachprüfung der Fracht fehlgeschlagen');
-  return{output,job:{offerId:targetId,source,destination,template,proof}};
+export function createRealOfferPatch(text,{sourceUnit,destinationUnit,templateOfferId,urgency=0,distanceKm,durationMinutes=1440}){
+  const before=parseSave(text),source=before.companies.find(company=>company.unit===sourceUnit),destination=before.companies.find(company=>company.unit===destinationUnit),template=before.offers.find(offer=>offer.id===templateOfferId);
+  if(!source)throw new Error('Quellfirma existiert nicht im Spielstand');if(!destination)throw new Error('Zielfirma existiert nicht im Spielstand');if(!template)throw new Error('Fracht-/Trailervorlage existiert nicht im Spielstand');if(!source.offerIds.includes(templateOfferId))throw new Error('Fracht-/Trailervorlage ist für die gewählte Abholfirma nicht freigegeben');if(!template.cargo||!template.trailerVariant||!template.trailerDefinition)throw new Error('Fracht-/Trailervorlage ist unvollständig');
+  const injected=injector.inject(parser.parse(text),{sourceCompanyUnit:sourceUnit,destinationCompanyUnit:destinationUnit,templateOfferId,cargo:template.cargo,trailerVariant:template.trailerVariant,trailerDefinition:template.trailerDefinition,durationMinutes,urgency:Math.max(0,Math.min(2,Number(urgency)||0)),distanceKm:Math.max(1,Number(distanceKm)||template.distanceKm||1000)}),output=parser.serialize(injected.document),proof=parseSave(output).offers.find(offer=>offer.id===injected.jobId);
+  if(proof?.target!==`${destination.company}.${destination.city}`||proof?.cargo!==template.cargo||proof?.trailerDefinition!==template.trailerDefinition)throw new Error('Nachprüfung der Fracht fehlgeschlagen');return{output,job:{offerId:injected.jobId,source,destination,template,proof,replacedOfferId:injected.replacedJobId,timeLimit:injected.timeLimit}};
 }
 
-export function patchSaveFile(file,input){
-  if(!existsSync(file))throw new Error(`Spielstand fehlt: ${file}`);const text=readFileSync(file,'utf8');if(!text.startsWith('SiiNunit'))throw new Error('Spielstand ist noch verschlüsselt');
-  const backup=`${file}.vtc-backup`;copyFileSync(file,backup);const result=createRealOfferPatch(text,input);const temp=`${file}.vtc-new`;writeFileSync(temp,result.output,'utf8');copyFileSync(temp,file);return{...result.job,file:path.resolve(file),backup:path.resolve(backup)};
-}
+export function patchSaveFile(file,input){if(!existsSync(file))throw new Error(`Spielstand fehlt: ${file}`);const text=readFileSync(file,'utf8');if(!text.startsWith('SiiNunit'))throw new Error('Spielstand ist noch verschlüsselt');const backup=`${file}.vtc-backup`;copyFileSync(file,backup);const result=createRealOfferPatch(text,input),temp=`${file}.vtc-new`;writeFileSync(temp,result.output,'utf8');parser.parse(readFileSync(temp,'utf8'));copyFileSync(temp,file);return{...result.job,file:path.resolve(file),backup:path.resolve(backup)};}

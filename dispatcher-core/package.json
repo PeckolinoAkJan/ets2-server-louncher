@@ -7,8 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "test": "pnpm run build && node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
