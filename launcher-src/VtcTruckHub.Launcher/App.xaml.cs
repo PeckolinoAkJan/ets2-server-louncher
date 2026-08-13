@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
+using Microsoft.Win32;
 
 namespace VtcTruckHub.Launcher;
 
@@ -26,6 +27,7 @@ public partial class App : Application
             return;
         }
         base.OnStartup(e);
+        RegisterUriProtocol();
         var window = new MainWindow();
         MainWindow = window;
         window.Show();
@@ -73,6 +75,23 @@ public partial class App : Application
             var uri = File.ReadAllText(PendingUriFile).Trim();
             File.Delete(PendingUriFile);
             window.QueueJoinUri(uri);
+        }
+        catch { }
+    }
+
+    static void RegisterUriProtocol()
+    {
+        try
+        {
+            var executable = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(executable)) return;
+            using var protocol = Registry.CurrentUser.CreateSubKey(@"Software\Classes\vtctruckhub");
+            protocol.SetValue(null, "URL:VTC Truck Hub");
+            protocol.SetValue("URL Protocol", "");
+            using var icon = protocol.CreateSubKey("DefaultIcon");
+            icon.SetValue(null, $"{executable},0");
+            using var command = protocol.CreateSubKey(@"shell\open\command");
+            command.SetValue(null, $"\"{executable}\" \"%1\"");
         }
         catch { }
     }

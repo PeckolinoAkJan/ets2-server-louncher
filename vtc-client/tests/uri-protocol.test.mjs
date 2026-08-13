@@ -8,4 +8,7 @@ test('Installer registriert ein benutzerbezogenes und deinstallierbares VTC-URI-
   assert.match(installer,/URL Protocol/);
   assert.match(installer,/Flags: uninsdeletekey/);
   assert.match(installer,/%1/);
+  const app=readFileSync(new URL('../../launcher-src/VtcTruckHub.Launcher/App.xaml.cs',import.meta.url),'utf8');
+  assert.match(app,/Registry\.CurrentUser\.CreateSubKey/);
+  assert.match(app,/Software\\Classes\\vtctruckhub/);
 });
