@@ -23,6 +23,10 @@ public static class VtcGameInput {
   [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr handle, ref POINT point);
   [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr handle);
+  delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int left, top, right, bottom; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int x, y; }
   const uint KEYEVENTF_KEYUP=0x0002, KEYEVENTF_SCANCODE=0x0008;
@@ -40,6 +44,15 @@ public static class VtcGameInput {
     if(!SetCursorPos(x,y)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     mouse_event(0x0002,0,0,0,UIntPtr.Zero); mouse_event(0x0004,0,0,0,UIntPtr.Zero);
   }
+  public static IntPtr ProcessWindow(uint expectedProcessId) {
+    IntPtr result=IntPtr.Zero;
+    EnumWindows(delegate(IntPtr handle, IntPtr parameter) {
+      uint processId; GetWindowThreadProcessId(handle,out processId);
+      if(processId==expectedProcessId && IsWindowVisible(handle)) { result=handle; return false; }
+      return true;
+    },IntPtr.Zero);
+    return result;
+  }
 }
 '@
 function Write-Result([string]$Status,[string]$Message) {
@@ -50,8 +63,8 @@ function Write-Result([string]$Status,[string]$Message) {
 }
 try {
   $deadline=(Get-Date).AddSeconds($ReadyTimeoutSeconds)
-  do {$game=Get-Process eurotrucks2 -ErrorAction SilentlyContinue|Where-Object {$_.MainWindowHandle -ne 0}|Select-Object -First 1;if(-not $game){Start-Sleep -Milliseconds 500}} while(-not $game -and (Get-Date)-lt $deadline)
-  if(-not $game){throw 'Das ETS2-Fenster wurde nicht gefunden.'}
+  do {$game=Get-Process eurotrucks2 -ErrorAction SilentlyContinue|Select-Object -First 1;$gameHandle=if($game){[VtcGameInput]::ProcessWindow([uint32]$game.Id)}else{[IntPtr]::Zero};if($gameHandle-eq[IntPtr]::Zero){Start-Sleep -Milliseconds 500}} while($gameHandle-eq[IntPtr]::Zero -and (Get-Date)-lt $deadline)
+  if($gameHandle-eq[IntPtr]::Zero){throw 'Das sichtbare ETS2-Fenster wurde nicht gefunden.'}
   $logFile=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Euro Truck Simulator 2\game.log.txt'
   # game.log.txt is recreated for every ETS2 start. Search the complete current
   # session because loading a large mod set can push the profile marker beyond
@@ -59,7 +72,7 @@ try {
   do {$ready=(Test-Path -LiteralPath $logFile)-and[bool](Select-String -LiteralPath $logFile -Pattern 'New profile selected:|Set profile finished:' -Quiet -ErrorAction SilentlyContinue);if(-not $ready){Start-Sleep -Milliseconds 500}} while(-not $ready -and (Get-Date)-lt $deadline)
   if(-not $ready){throw 'Das ETS2-Profil wurde nicht rechtzeitig bereit.'}
   $overlay=[VtcGameInput]::FindWindow($null,'VTC Truck Hub Dispatcher');if($overlay-ne[IntPtr]::Zero){[VtcGameInput]::ShowWindowAsync($overlay,0)|Out-Null}
-  [VtcGameInput]::ShowWindowAsync($game.MainWindowHandle,9)|Out-Null;[VtcGameInput]::SetForegroundWindow($game.MainWindowHandle)|Out-Null
+  [VtcGameInput]::ShowWindowAsync($gameHandle,9)|Out-Null;[VtcGameInput]::SetForegroundWindow($gameHandle)|Out-Null
   Start-Sleep -Milliseconds $DelayMilliseconds
   [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 400
   [Windows.Forms.SendKeys]::SendWait("game $Slot");[Windows.Forms.SendKeys]::SendWait('{ENTER}')
@@ -71,7 +84,7 @@ try {
   # Use the official SCS Convoy browser. The Search ID is not a Steam lobby ID.
   # Coordinates use SCS' 1440x900 virtual UI canvas and are scaled to the game
   # client area, so the adapter does not depend on a fixed desktop resolution.
-  [VtcGameInput]::SetForegroundWindow($game.MainWindowHandle)|Out-Null
+  [VtcGameInput]::SetForegroundWindow($gameHandle)|Out-Null
   [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
   [Windows.Forms.SendKeys]::SendWait('ui s convoy.sessions');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
   [VtcGameInput]::Scan(0x29);Start-Sleep -Seconds 2

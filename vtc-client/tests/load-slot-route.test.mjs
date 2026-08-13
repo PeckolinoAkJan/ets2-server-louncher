@@ -13,6 +13,7 @@ test('Launcher lädt den VTC-Slot ohne eine SCS-Such-ID als Steam-Lobby zu verwe
   assert.match(script,/Loading save/);
   assert.match(script,/ui s convoy\.sessions/);
   assert.match(script,/screenshot vtc_convoy_browser/);
+  assert.match(script,/ProcessWindow\(\[uint32\]\$game\.Id\)/);
   assert.doesNotMatch(script,/ClickVirtual\(\$game\.MainWindowHandle,978,42\)/);
   assert.doesNotMatch(script,/connect_lobby/);
 });
