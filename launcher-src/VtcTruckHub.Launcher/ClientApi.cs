@@ -19,6 +19,7 @@ public sealed class ClientApi
     var response=await http.PostAsJsonAsync("api/auth/poll",new{},json);var value=await response.Content.ReadFromJsonAsync<TokenResult>(json);
     if(response.StatusCode==(System.Net.HttpStatusCode)202)return value!;await Ensure(response);return value!;
   }
+  public async Task Logout(){var response=await http.PostAsJsonAsync("api/auth/logout",new{},json);await Ensure(response);}
   public async Task<LaunchResult> Launch(string game,string serverId){var r=await http.PostAsJsonAsync("api/game/launch",new{game,serverId},json);await Ensure(r);return (await r.Content.ReadFromJsonAsync<LaunchResult>(json))!;}
   public async Task<MultiplayerJoinResult> JoinMultiplayer(string game,string serverId){var r=await http.PostAsJsonAsync("api/multiplayer/join",new{game,serverId,mapProfile="standard"},json);await Ensure(r);return (await r.Content.ReadFromJsonAsync<MultiplayerJoinResult>(json))!;}
   public async Task<SaveSetupResult> SetupDispatcher(){var r=await http.PostAsJsonAsync("api/real-dispatch/setup",new{confirmed=true},json);await Ensure(r);return (await r.Content.ReadFromJsonAsync<SaveSetupResult>(json))!;}

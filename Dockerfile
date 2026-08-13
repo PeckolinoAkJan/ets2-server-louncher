@@ -1,8 +1,10 @@
 FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends bash curl ca-certificates tar libatomic1 libgl1 libglib2.0-0 libx11-6 libxext6 libxrandr2 libxrender1 lib32gcc-s1 lib32stdc++6 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --prod --frozen-lockfile
 COPY server.mjs ./
+COPY database ./database
 COPY lib ./lib
 COPY public ./public
 COPY scripts ./scripts

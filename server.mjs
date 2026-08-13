@@ -7,6 +7,8 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { MultiplayerHub } from "./lib/multiplayer-hub.mjs";
+import { createDatabase } from "./lib/database.mjs";
+import { attachLiveChannel } from "./lib/live-channel.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -27,6 +29,8 @@ const clientTokens = new Map();
 const multiplayer = new MultiplayerHub();
 const PUBLIC_URL = String(process.env.PUBLIC_URL || "https://ets-server.vtc-truck-hub.de").replace(/\/$/, "");
 const STEAM_OPENID = "https://steamcommunity.com/openid/login";
+const database = await createDatabase();
+const mirror = promise => Promise.resolve(promise).catch(error => console.error("database mirror:", error.message));
 
 const games = {
   ets2: { id: "ets2", label: "Euro Truck Simulator 2", short: "ETS2", appId: 1948160, binary: "eurotrucks2_server", home: process.env.ETS2_HOME || path.join(DATA, "Euro Truck Simulator 2"), server: process.env.ETS2_SERVER_DIR || path.join(DATA, "ets2-server"), config: path.join(DATA, "panel-config.json"), pid: path.join(DATA, "ets2.pid"), installLog: path.join(DATA, "install.log"), ports: [27015, 27016] },
@@ -58,17 +62,30 @@ function atomicJson(file, value) {
   const tmp = `${file}.${process.pid}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, file);
+  if(database.enabled){
+    if(file===USERS_FILE)mirror(database.saveUsers(value));
+    else if(file===DRIVERS_FILE)mirror(database.saveDrivers(value));
+    else if(file===CLIENT_SESSIONS_FILE)mirror(database.saveSessions(value));
+    else {const game=Object.values(games).find(item=>item.config===file);if(game)mirror(database.saveConfig(game.id,value));}
+  }
 }
 function tokenHash(token){return crypto.createHash('sha256').update(String(token)).digest('hex');}
 function loadClientSessions(){for(const item of readJson(CLIENT_SESSIONS_FILE,[]))if(item.hash&&item.expires>Date.now())clientTokens.set(item.hash,item);}
 function saveClientSessions(){const now=Date.now(),items=[...clientTokens.values()].filter(item=>item.expires>now);clientTokens.clear();for(const item of items)clientTokens.set(item.hash,item);atomicJson(CLIENT_SESSIONS_FILE,items);}
-function clientAccount(req){const token=String(req.headers.authorization||"").replace(/^Bearer\s+/i,""),record=clientTokens.get(tokenHash(token));return record&&record.expires>Date.now()?record:null;}
+function accountFromToken(token){const record=clientTokens.get(tokenHash(token));return record&&record.expires>Date.now()?record:null;}
+function clientAccount(req){return accountFromToken(String(req.headers.authorization||"").replace(/^Bearer\s+/i,""));}
 function drivers(){return readJson(DRIVERS_FILE,[]);}
 function publicDriver(d){return{id:d.id,displayName:d.displayName,steamId:d.steamId||"",status:d.status||"pending",registeredAt:d.registeredAt,lastLoginAt:d.lastLoginAt||null};}
 function findDriverBySteam(steamId){return drivers().find(d=>String(d.steamId||"")===String(steamId));}
 function migrateLegacyDrivers(){const list=drivers();let changed=false;for(const user of readJson(USERS_FILE,[])){if(user.steamId&&!list.some(d=>d.steamId===user.steamId)){list.push({id:crypto.randomUUID(),displayName:user.username,steamId:user.steamId,status:"approved",registeredAt:new Date().toISOString(),lastLoginAt:null});changed=true;}}if(changed)atomicJson(DRIVERS_FILE,list);}
 loadClientSessions();
 migrateLegacyDrivers();
+if(database.enabled){
+  const fallback={users:readJson(USERS_FILE,[]),drivers:readJson(DRIVERS_FILE,[]),sessions:readJson(CLIENT_SESSIONS_FILE,[])};
+  const hydrated=await database.hydrate(fallback);
+  atomicJson(USERS_FILE,hydrated.users);atomicJson(DRIVERS_FILE,hydrated.drivers);atomicJson(CLIENT_SESSIONS_FILE,hydrated.sessions);
+  clientTokens.clear();loadClientSessions();await database.importLegacy(hydrated);
+}
 function gameFrom(value) { return games[String(value || "ets2").toLowerCase()] || games.ets2; }
 function getConfig(game = games.ets2) {
   const base = game.id === "ats" ? { ...defaults, lobby_name: "VTC Truck Hub ATS", description: "Willkommen auf unserem ATS Community-Server", server_name: "ATS Community Server", connection_dedicated_port: 27017, query_dedicated_port: 27018 } : defaults;
@@ -132,6 +149,7 @@ function verifyPassword(password, user) {
 }
 function audit(user, action, detail = "") {
   writeFileSync(AUDIT_FILE, `${new Date().toISOString()}\t${user || "system"}\t${action}\t${safeText(detail, 240)}\n`, { flag: "a" });
+  if(database.enabled)mirror(database.audit(user,action,safeText(detail,240)));
 }
 function requireAuth(req, res, mutation = false) {
   const s = session(req);
@@ -224,7 +242,7 @@ async function api(req, res, url) {
   const clientTelemetryMatch=url.pathname.match(/^\/api\/client\/telemetry\/(ets2|ats)$/);if(clientTelemetryMatch&&req.method==="POST"){
     const account=clientAccount(req);if(!account)return send(res,401,{error:"Client-Anmeldung abgelaufen"});
     const target=games[clientTelemetryMatch[1]],input=await body(req),num=v=>Number.isFinite(Number(v))?Number(v):null,id=account.steamId;
-    telemetry.get(target.id).set(id,{name:safeText(account.displayName,50),steamId:account.steamId,ping:Math.max(0,Math.min(9999,num(input.ping)??0)),city:safeText(input.city,60)||"–",company:safeText(input.company,60)||"–",x:num(input.x),y:num(input.y),z:num(input.z),heading:num(input.heading),speed:num(input.speed),source:"VTC Client",updatedAt:Date.now()});return send(res,202,{ok:true});
+    const snapshot={name:safeText(account.displayName,50),steamId:account.steamId,ping:Math.max(0,Math.min(9999,num(input.ping)??0)),city:safeText(input.city,60)||"–",company:safeText(input.company,60)||"–",x:num(input.x),y:num(input.y),z:num(input.z),heading:num(input.heading),speed:num(input.speed),source:"VTC Client",updatedAt:Date.now()};telemetry.get(target.id).set(id,snapshot);if(database.enabled)mirror(database.telemetry(target.id,id,account.vtcAccountId,snapshot));return send(res,202,{ok:true});
   }
   if(url.pathname==="/api/client/auth/steam/start"&&req.method==="GET"){
     const code=String(url.searchParams.get("code")||"").toUpperCase(),entry=[...clientDevices.entries()].find(([,d])=>d.userCode===code&&d.expires>Date.now());if(!entry)return send(res,410,{error:"Gerätecode ist ungültig oder abgelaufen"});
@@ -339,7 +357,7 @@ async function apiV2(req, res, url) {
   const backupMatch=url.pathname.match(/^\/api\/backups\/([^/]+)(?:\/(download|restore))?$/); if(backupMatch){const s=requireAuth(req,res,req.method!=="GET");if(!s)return;const name=safeBackupName(decodeURIComponent(backupMatch[1]));if(!name||!name.startsWith(`${game.id}-`))return send(res,400,{error:"Ungültiger Backupname"});const file=path.join(BACKUPS,name);if(!existsSync(file))return send(res,404,{error:"Backup nicht gefunden"});if(req.method==="GET"&&backupMatch[2]==="download"){res.writeHead(200,{"Content-Type":"application/gzip","Content-Disposition":`attachment; filename="${name}"`,"Content-Length":statSync(file).size});return createReadStream(file).pipe(res);}if(req.method==="DELETE"){unlinkSync(file);audit(s.user,`${game.id}_backup_delete`,name);return send(res,200,{ok:true});}if(req.method==="POST"&&backupMatch[2]==="restore"){if(running(game).running)return send(res,409,{error:"Server vor Wiederherstellung stoppen"});try{await runScript(game,"restore-ets2.sh",[file]);audit(s.user,`${game.id}_backup_restore`,name);return send(res,200,{ok:true});}catch(e){return send(res,500,{error:e.message});}}}
   if(url.pathname==="/api/telemetry/token"&&req.method==="GET"){const s=requireAuth(req,res);if(!s)return;return send(res,200,{token:getConfig(game).telemetry_token,endpoint:`/api/telemetry/${game.id}`});}
   if(url.pathname==="/api/telemetry/token"&&req.method==="POST"){const s=requireAuth(req,res,true);if(!s)return;const config=getConfig(game);config.telemetry_token=crypto.randomBytes(24).toString("base64url");atomicJson(game.config,config);telemetry.get(game.id).clear();audit(s.user,`${game.id}_telemetry_token_regenerated`);return send(res,200,{token:config.telemetry_token,endpoint:`/api/telemetry/${game.id}`});}
-  const telemetryMatch=url.pathname.match(/^\/api\/telemetry\/(ets2|ats)$/); if(telemetryMatch&&req.method==="POST"){const target=games[telemetryMatch[1]],expected=getConfig(target).telemetry_token,supplied=String(req.headers.authorization||"").replace(/^Bearer\s+/i,"");if(!supplied||supplied.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return send(res,401,{error:"Telemetrie-Token ungültig"});const input=await body(req),name=safeText(input.name||input.driver,50),steamId=safeText(input.steamId||input.steam_id,24);if(!name)return send(res,400,{error:"Fahrername fehlt"});const id=steamId||name.toLowerCase(),num=v=>Number.isFinite(Number(v))?Number(v):null;telemetry.get(target.id).set(id,{name,steamId:steamId||"–",ping:Math.max(0,Math.min(9999,num(input.ping)??0)),city:safeText(input.city,60)||"–",company:safeText(input.company,60)||"–",x:num(input.x),y:num(input.y),z:num(input.z),heading:num(input.heading),speed:num(input.speed),source:"Live-Telemetrie",updatedAt:Date.now()});return send(res,202,{ok:true});}
+  const telemetryMatch=url.pathname.match(/^\/api\/telemetry\/(ets2|ats)$/); if(telemetryMatch&&req.method==="POST"){const target=games[telemetryMatch[1]],expected=getConfig(target).telemetry_token,supplied=String(req.headers.authorization||"").replace(/^Bearer\s+/i,"");if(!supplied||supplied.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return send(res,401,{error:"Telemetrie-Token ungültig"});const input=await body(req),name=safeText(input.name||input.driver,50),steamId=safeText(input.steamId||input.steam_id,24);if(!name)return send(res,400,{error:"Fahrername fehlt"});const id=steamId||name.toLowerCase(),num=v=>Number.isFinite(Number(v))?Number(v):null,snapshot={name,steamId:steamId||"–",ping:Math.max(0,Math.min(9999,num(input.ping)??0)),city:safeText(input.city,60)||"–",company:safeText(input.company,60)||"–",x:num(input.x),y:num(input.y),z:num(input.z),heading:num(input.heading),speed:num(input.speed),source:"Live-Telemetrie",updatedAt:Date.now()};telemetry.get(target.id).set(id,snapshot);if(database.enabled)mirror(database.telemetry(target.id,id,null,snapshot));return send(res,202,{ok:true});}
   return send(res,404,{error:"API-Endpunkt nicht gefunden"});
 }
 
@@ -357,5 +375,8 @@ const server = http.createServer(async (req, res) => {
   try { if (url.pathname.startsWith("/api/")) await apiV2(req, res, url); else staticFile(req, res, url); }
   catch (e) { console.error(e); send(res, e.message === "PAYLOAD_TOO_LARGE" ? 413 : 400, { error: e.message === "PAYLOAD_TOO_LARGE" ? "Anfrage zu groß" : "Ungültige Anfrage" }); }
 });
+const liveChannel=await attachLiveChannel(server,{authenticate:accountFromToken,snapshot:game=>({game,players:multiplayer.snapshot(game,`vtc-${game}-main`),telemetry:[...telemetry.get(game).values()]})});
 server.listen(PORT, "0.0.0.0", () => console.log(`ETS2 Server Control läuft auf http://0.0.0.0:${PORT}`));
 setInterval(() => { const now = Date.now(); for (const [k,v] of sessions) if (v.expires < now) sessions.delete(k); }, 60_000).unref();
+async function shutdown(){await liveChannel.close();await database.close();server.close(()=>process.exit(0));setTimeout(()=>process.exit(1),5000).unref()}
+process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);

@@ -9,6 +9,9 @@ services:
       ETS2_HOME: "/data/Euro Truck Simulator 2"
       ETS2_SERVER_DIR: /data/ets2-server
       COOKIE_SECURE: "true"
+      DATABASE_URL: "${DATABASE_URL:-}"
+      DB_POOL_SIZE: "8"
+      ENABLE_WEBSOCKET: "1"
       TZ: Europe/Berlin
     volumes:
       - ets2-data:/data

@@ -1,4 +1,3 @@
-using Microsoft.VisualBasic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -25,6 +24,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += OnLoaded;
         PlayButton.Click += async (_, _) => await Play();
+        LoginButton.Click += async (_, _) => await Login(true);
+        RegisterButton.Click += async (_, _) => await Login(false);
+        LogoutButton.Click += async (_, _) => await Logout();
         UpdateButton.Click += async (_, _) => await InstallUpdate();
         connectionTimer.Tick += async (_, _) => await UpdateConnection();
         HomeNav.Click += (_, _) => StatusText.Text = "Launcher ist aktuell und startbereit";
@@ -82,6 +84,13 @@ public partial class MainWindow : Window
     {
         state = await api.Status();
         AccountText.Text = state.Account is null ? "Nicht angemeldet" : $"{state.Account.DisplayName} · Steam verbunden";
+        AccountStateText.Text = state.Account is null ? "VTC-KONTO · OFFLINE" : "VTC-KONTO · STEAM VERBUNDEN";
+        AccountStateText.Foreground = state.Account is null ? Brushes.Gray : (Brush)FindResource("Green");
+        LoginButton.IsEnabled = state.Account is null;
+        RegisterButton.IsEnabled = state.Account is null;
+        DisplayNameInput.IsEnabled = state.Account is null;
+        LogoutButton.IsEnabled = state.Account is not null;
+        AccountHint.Text = state.Account is null ? "Bestehendes Konto: LOGIN. Neues Konto: Fahrername eintragen und REGISTRIEREN." : $"Angemeldet als {state.Account.DisplayName}. Das Zugriffstoken liegt ausschließlich lokal.";
         EtsState.Text = State("ets2");
         AtsState.Text = State("ats");
     }
@@ -138,7 +147,7 @@ public partial class MainWindow : Window
         if (state is null) return;
         var game = SelectedGame();
         if (state.Games.FirstOrDefault(g => g.Id == game)?.Installed != true) { MessageBox.Show("Dieses Spiel wurde nicht gefunden."); return; }
-        if (state.Account is null && !await Login()) return;
+        if (state.Account is null && !await Login(true)) return;
         if (game == "ets2" && state.TestSave is null)
         {
             var setup = MessageBox.Show("Der Ingame-Dispatcher braucht einmalig einen eigenen VTC-Spielstand. Dabei wird nur eine Kopie deines neuesten Autosaves angelegt; bestehende Spielstände bleiben unverändert.\n\nJetzt automatisch einrichten?", "Dispatcher einrichten", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
@@ -190,28 +199,49 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    async Task<bool> Login()
+    async Task<bool> Login(bool existingAccount)
     {
-        var answer = MessageBox.Show("Besteht bereits ein freigegebenes Fahrerkonto?\n\nJa = anmelden\nNein = registrieren", "VTC Truck Hub", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-        if (answer == MessageBoxResult.Cancel) return false;
         string? name = null;
-        if (answer == MessageBoxResult.No)
+        if (!existingAccount)
         {
-            name = Interaction.InputBox("Fahrername für die Registrierliste:", "Fahrerkonto registrieren");
-            if (string.IsNullOrWhiteSpace(name)) return false;
+            name = DisplayNameInput.Text.Trim();
+            if (string.IsNullOrWhiteSpace(name)) { MessageBox.Show("Bitte zuerst einen Fahrernamen eingeben.", "Registrierung", MessageBoxButton.OK, MessageBoxImage.Information); return false; }
         }
-        var start = await api.StartLogin(name);
-        ClientApi.OpenSecureLogin(start.VerificationUri);
-        for (var i = 0; i < 900; i++)
+        SetAccountBusy(true, existingAccount ? "Steam-Login wird geöffnet …" : "Registrierung wird geöffnet …");
+        try
         {
-            await Task.Delay(2000);
-            var result = await api.Poll();
-            if (result.Account is not null) { await Refresh(); return true; }
-            if (result.Status is "approval_required") { AccountText.Text = "Wartet auf Administrator-Freigabe"; continue; }
-            if (result.Status is "blocked") { MessageBox.Show("Dieses Fahrerkonto wurde gesperrt."); return false; }
+            var start = await api.StartLogin(name);
+            ClientApi.OpenSecureLogin(start.VerificationUri);
+            for (var i = 0; i < 450; i++)
+            {
+                await Task.Delay(2000);
+                var result = await api.Poll();
+                if (result.Account is not null) { await Refresh(); return true; }
+                if (result.Status is "approval_required") { AccountText.Text = "Wartet auf Administrator-Freigabe"; AccountHint.Text = "Die Registrierung wurde gespeichert. Ein Administrator muss das VTC-Konto noch freigeben."; continue; }
+                if (result.Status is "blocked") { MessageBox.Show("Dieses Fahrerkonto wurde gesperrt."); return false; }
+            }
+            MessageBox.Show("Anmeldung ist abgelaufen.");
+            return false;
         }
-        MessageBox.Show("Anmeldung ist abgelaufen.");
-        return false;
+        catch (Exception ex) { MessageBox.Show(ex.Message, existingAccount ? "Login fehlgeschlagen" : "Registrierung fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error); return false; }
+        finally { SetAccountBusy(false); }
+    }
+
+    async Task Logout()
+    {
+        SetAccountBusy(true, "Abmeldung läuft …");
+        try { await api.Logout(); await Refresh(); StatusText.Text = "Sicher abgemeldet"; }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "Logout fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error); }
+        finally { SetAccountBusy(false); }
+    }
+
+    void SetAccountBusy(bool busy, string? hint = null)
+    {
+        LoginButton.IsEnabled = !busy && state?.Account is null;
+        RegisterButton.IsEnabled = !busy && state?.Account is null;
+        LogoutButton.IsEnabled = !busy && state?.Account is not null;
+        DisplayNameInput.IsEnabled = !busy && state?.Account is null;
+        if (hint is not null) AccountHint.Text = hint;
     }
 
     ServerInfo? ChooseServer(ServerInfo[] servers)
