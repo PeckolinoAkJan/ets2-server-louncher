@@ -1,5 +1,5 @@
 #define MyAppName "VTC Truck Hub Launcher"
-#define MyAppVersion "0.9.9"
+#define MyAppVersion "0.9.10"
 [Setup]
 AppId={{8E88D94F-0DC9-4B23-9D54-A702678E1B2A}
 AppName={#MyAppName}

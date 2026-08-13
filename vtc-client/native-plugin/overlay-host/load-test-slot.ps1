@@ -1,5 +1,6 @@
 param(
   [ValidateRange(1,99)][int]$Slot = 3,
+  [ValidatePattern('^\d{17,20}$')][string]$SearchTerm = '',
   [ValidateRange(250,5000)][int]$DelayMilliseconds = 900,
   [ValidateRange(10,180)][int]$ReadyTimeoutSeconds = 90,
   [string]$ResultFile = ''
@@ -18,6 +19,12 @@ public static class VtcGameInput {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr handle, int command);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string className, string windowName);
+  [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr handle, out RECT rect);
+  [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr handle, ref POINT point);
+  [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int left, top, right, bottom; }
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int x, y; }
   const uint KEYEVENTF_KEYUP=0x0002, KEYEVENTF_SCANCODE=0x0008;
   public static void Scan(ushort scan) {
     var events=new INPUT[2];
@@ -25,13 +32,21 @@ public static class VtcGameInput {
     events[1].type=1; events[1].u.ki.wScan=scan; events[1].u.ki.dwFlags=KEYEVENTF_SCANCODE|KEYEVENTF_KEYUP;
     if(SendInput(2,events,Marshal.SizeOf(typeof(INPUT)))!=2) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
   }
+  public static void ClickVirtual(IntPtr handle, double virtualX, double virtualY) {
+    RECT rect; if(!GetClientRect(handle,out rect)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    POINT origin=new POINT(); if(!ClientToScreen(handle,ref origin)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    int x=origin.x+(int)Math.Round((virtualX/1440.0)*(rect.right-rect.left));
+    int y=origin.y+(int)Math.Round((1.0-virtualY/900.0)*(rect.bottom-rect.top));
+    if(!SetCursorPos(x,y)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    mouse_event(0x0002,0,0,0,UIntPtr.Zero); mouse_event(0x0004,0,0,0,UIntPtr.Zero);
+  }
 }
 '@
 function Write-Result([string]$Status,[string]$Message) {
   if(-not $ResultFile){return}
   $parent=Split-Path -Parent $ResultFile
   if($parent){New-Item -ItemType Directory -Path $parent -Force|Out-Null}
-  [pscustomobject]@{status=$Status;message=$Message;slot=$Slot;finishedAt=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $ResultFile -Encoding UTF8
+  [pscustomobject]@{status=$Status;message=$Message;slot=$Slot;searchTerm=$SearchTerm;finishedAt=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $ResultFile -Encoding UTF8
 }
 try {
   $deadline=(Get-Date).AddSeconds($ReadyTimeoutSeconds)
@@ -51,7 +66,23 @@ try {
   $loadDeadline=(Get-Date).AddSeconds(45);$loaded=$false
   do {Start-Sleep -Milliseconds 500;$tail=Get-Content -LiteralPath $logFile -Tail 700 -ErrorAction SilentlyContinue;$loaded=[bool]($tail-match"Loading save\..*slot:\s*$Slot,.*?/save/$Slot/game\.sii")} while(-not $loaded -and (Get-Date)-lt $loadDeadline)
   if(-not $loaded){throw "ETS2 hat Testslot $Slot nicht bestätigt geladen."}
-  # The SCS Search ID is intentionally not sent to Steam or the game console.
-  # Convoy join is handled separately through the official server browser.
-  Write-Result 'loaded' "ETS2-Testslot $Slot wurde geladen.";Write-Host "ETS2-Testslot $Slot wurde geladen." -ForegroundColor Green
+  if(-not $SearchTerm){Write-Result 'loaded' "ETS2-Testslot $Slot wurde geladen.";Write-Host "ETS2-Testslot $Slot wurde geladen." -ForegroundColor Green;exit 0}
+
+  # Use the official SCS Convoy browser. The Search ID is not a Steam lobby ID.
+  # Coordinates use SCS' 1440x900 virtual UI canvas and are scaled to the game
+  # client area, so the adapter does not depend on a fixed desktop resolution.
+  [VtcGameInput]::SetForegroundWindow($game.MainWindowHandle)|Out-Null
+  [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 350
+  [Windows.Forms.SendKeys]::SendWait('ui s convoy.sessions');[Windows.Forms.SendKeys]::SendWait('{ENTER}');Start-Sleep -Seconds 2
+  [VtcGameInput]::Scan(0x29);Start-Sleep -Seconds 2
+  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,144,815);Start-Sleep -Milliseconds 300
+  [Windows.Forms.SendKeys]::SendWait('^a');[Windows.Forms.SendKeys]::SendWait($SearchTerm);Start-Sleep -Milliseconds 300
+  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,281,815);Start-Sleep -Seconds 8
+  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,450,738);Start-Sleep -Seconds 1
+  [VtcGameInput]::ClickVirtual($game.MainWindowHandle,978,42)
+
+  $joinDeadline=(Get-Date).AddSeconds(45);$joined=$false;$failed=$false
+  do {Start-Sleep -Milliseconds 500;$tail=Get-Content -LiteralPath $logFile -Tail 1200 -ErrorAction SilentlyContinue;$joined=[bool]($tail-match '\[MP\].*(connected|join|session)');$failed=[bool]($tail-match '\[MP\].*(failed|error|disconnect|rejected)')} while(-not $joined -and -not $failed -and (Get-Date)-lt $joinDeadline)
+  if(-not $joined){throw "Der offizielle Convoy-Browser hat den Beitritt mit Search ID $SearchTerm nicht bestaetigt."}
+  Write-Result 'connected' "ETS2 ist dem Convoy $SearchTerm beigetreten.";Write-Host "ETS2 ist dem Convoy $SearchTerm beigetreten." -ForegroundColor Green
 } catch {Write-Result 'error' $_.Exception.Message;throw}
