@@ -12,6 +12,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '8.0.x' }
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - name: Test TypeScript dispatcher core
+        shell: pwsh
+        run: |
+          pnpm --dir dispatcher-core install --frozen-lockfile
+          pnpm --dir dispatcher-core run typecheck
+          pnpm --dir dispatcher-core test
       - name: Test server and local API
         shell: pwsh
         run: |
