@@ -2,6 +2,7 @@ param(
   [ValidateRange(1,99)][int]$Slot = 3,
   [ValidateRange(250,5000)][int]$DelayMilliseconds = 900,
   [ValidateRange(10,180)][int]$ReadyTimeoutSeconds = 90,
+  [ValidatePattern('^\d{17,20}$')][string]$LobbyId = '',
   [string]$ResultFile = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -51,5 +52,11 @@ try {
   $loadDeadline=(Get-Date).AddSeconds(45);$loaded=$false
   do {Start-Sleep -Milliseconds 500;$tail=Get-Content -LiteralPath $logFile -Tail 700 -ErrorAction SilentlyContinue;$loaded=[bool]($tail-match"Loading save\..*slot:\s*$Slot,.*?/save/$Slot/game\.sii")} while(-not $loaded -and (Get-Date)-lt $loadDeadline)
   if(-not $loaded){throw "ETS2 hat Testslot $Slot nicht bestätigt geladen."}
+  if($LobbyId) {
+    # Retry only after the isolated profile and its complete mod set are ready.
+    Start-Sleep -Milliseconds 1200
+    [VtcGameInput]::Scan(0x29);Start-Sleep -Milliseconds 400
+    [Windows.Forms.SendKeys]::SendWait("connect_lobby $LobbyId");[Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  }
   Write-Result 'loaded' "ETS2-Testslot $Slot wurde geladen.";Write-Host "ETS2-Testslot $Slot wurde geladen." -ForegroundColor Green
 } catch {Write-Result 'error' $_.Exception.Message;throw}
